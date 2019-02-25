@@ -1,3 +1,4 @@
+import os
 import sensor as sensor
 
 import tkinter as tk
@@ -21,60 +22,17 @@ class Grapher(tk.Frame):
 		# Title of Page
 		label = tk.Label(root, text="Cellulose Graph Page", font=LARGE_FONT)
 		label.grid(padx=(25,0))
-
 		rowIdx = 1
 
 		# COEFFICIENT ENTRY BOXES =================================================================
 
-		# Time (vector array, Years)
-		tk.Label(root, text = "Time (Years)").grid(row=1, column=0)
-		self.lonEntry = tk.Entry(root)
-		self.lonEntry.grid(row=rowIdx, column=1)
-		rowIdx += 1
-
-		# Temperature (Kelvin)
-		tk.Label(root, text = "Temperature").grid(row=2, column=0)
-		self.latEntry = tk.Entry(root)
-		self.latEntry.grid(row=rowIdx, column=1)
-		rowIdx += 1
-
-		# Precipitation mm/day
-		tk.Label(root, text = "Precipitation (mm/day)").grid(row=3, column=0)
-		self.latEntry = tk.Entry(root)
-		self.latEntry.grid(row=rowIdx, column=1)
-		rowIdx += 1
-
-		# Relative Humidity %
-		tk.Label(root, text = "Relative Humidity (%)").grid(row=4, column=0)
-		self.latEntry = tk.Entry(root)
-		self.latEntry.grid(row=rowIdx, column=1)
-		rowIdx += 1
-
-		# d180s isotope ratio of soil water
-		tk.Label(root, text = "d180s (Isotope ratio of Soil Water)").grid(row=5, column=0)
-		self.latEntry = tk.Entry(root)
-		self.latEntry.grid(row=rowIdx, column=1)
-		rowIdx += 1
-
-		# d180p isotope ratio of precipitation
-		tk.Label(root, text = "d180p (Isotope ratio of Precipitation)").grid(row=6, column=0)
-		self.latEntry = tk.Entry(root)
-		self.latEntry.grid(row=rowIdx, column=1)
-		rowIdx += 1
-
-		# d180v isotope ratio of Ambient vapor at surface layer
-		tk.Label(root, text = "d180v (Isotope ratio of Ambient Vapor)").grid(row=7, column=0)
-		self.latEntry = tk.Entry(root)
-		self.latEntry.grid(row=rowIdx, column=1)
-		rowIdx += 1
-
-		Models = [("Roden", 0), ("Evans (Default)", 1)]
+		models = ["Roden", "Evans"]
 
 		self.v = tk.StringVar()
 		self.v.set("default")
-		tk.Label(root, text = "Pick a Cellulose Model:").grid(row=8, column=0)
-		for text, mode in Models:
-			b = tk.Radiobutton(root, text=text, variable=self.v, value=mode)
+		tk.Label(root, text = "Pick a Cellulose Model:").grid(row=3, column=0)
+		for text in models:
+			b = tk.Radiobutton(root, text=text, variable=self.v, value=text)
 			b.grid(row=rowIdx, column=1, sticky="w")
 			rowIdx+=1
 
@@ -87,11 +45,22 @@ class Grapher(tk.Frame):
 		exampleGraphButton.grid(row=rowIdx, column=1)
 		rowIdx+=1
 
-		# Creates graph with given inputs
+		# Allows user to upload data.
 		tk.Label(root,
-			text="Upload a single CSV file with three columns \n and the headers \"TIME\", \"SST\", \"SSS\"."
-			).grid(row=rowIdx, columnspan=3, rowspan=3)
+			text="Upload a single CSV file with seven columns and the headers \n \"TIME\", \"TEMP\", \"PRECIP\", \"RELHUM\", \"D180S\", \"D180P\", \"D180V\".").grid(row=rowIdx, columnspan=3, rowspan=3)
 		rowIdx += 3
+		tk.Label(root, text = "Click to upload your data:").grid(row=rowIdx, column=0)
+		graphButton = tk.Button(root, text="Upload Data", command=self.uploadData)
+		graphButton.grid(row=rowIdx, column=1)
+		rowIdx += 1
+
+		# Shows the name of the current uploaded file, if any.
+		tk.Label(root, text="Current File Uploaded:").grid(row=rowIdx, column=0)
+		self.currentFileLabel = tk.Label(root, text="No file")
+		self.currentFileLabel.grid(row=rowIdx, column=1)
+		rowIdx+=1
+
+		# Creates graph with given inputs
 		tk.Label(root, text = "Click to create your own graph:").grid(row=rowIdx, column=0)
 		graphButton = tk.Button(root, text="Generate Graph", command=self.generateGraph)
 		graphButton.grid(row=rowIdx, column=1)
@@ -113,72 +82,58 @@ class Grapher(tk.Frame):
 	def exampleGraph(self):
 		# clear whatever is currently on the canvas
 		self.a.clear()
-
 		# Time values
-		xVals = np.arange(850,1850,1)
+		time = np.arange(1000,2005,1)
 		# Get y-values from driver script
-		yVals = np.load('simulated_coral_d18O.npy')
-		# ASK: WHAT IS CORAL AGE PERTURBED? error bars
-		errorVals = np.load('coral_age_perturbed.npy')
+		yVals = np.load('../dcell_Xn.npy')
+		# ASK: WHAT IS CELLULOSE AGE PERTURBED? error bars
+		# errorVals = np.load('coral/coral_age_perturbed.npy') # To be changed
 
 		# Plot the graph
-		self.a.plot(xVals, yVals)
+		self.a.plot(time, yVals)
 		self.a.set_xlabel('Time')
-		self.a.set_ylabel('Simulated Coral Data')
+		self.a.set_ylabel('Simulated Cellulose Data')
 		self.canvas.draw()
 
 	"""
-	Takes a CSV file with Time, SSS, and SST values and generates
-	coral data based on the model.
+	Takes a CSV file and saves all arrays needed for Cellulose models.
 	"""
-	def generateGraph(self):
+	def uploadData(self):
 		# Open the file choosen by the user
 		filename = filedialog.askopenfilename(filetypes = (("csv files","*.csv"),))
 		data = np.genfromtxt(filename, delimiter = ",", names=True, dtype=None)
-		# Get the entry fields.
-		time=data['TIME']
-		SST=data['SST']
-		SSS=data['SSS']
+		self.currentFileLabel.configure(text=os.path.basename(filename))
 
+		# Get the entry fields.
+		self.time=data['TIME']
+		self.temp=data['TEMP']
+		self.precip=data['PRECIP']
+		self.rh=data['RELHUM']
+		self.d180s=data['D180S']
+		self.d180p=data['D180P']
+		self.d180v=data['D180V']
+
+	"""
+	Generates coral data based on input data and model, and graphs result.
+	"""
+	def generateGraph(self):
 		# Clear whatever is currently on the canvas
 		self.a.clear()
 
-		speciesInput = self.v.get()
-		print(speciesInput)
-
-        # Longitude   [lon]       [0, 360]
-		lonEntryRaw = self.lonEntry.get()
-		if lonEntryRaw == "":
-			lon = 197.92
-		else:
-			lon = float(lonEntryRaw)
-			if (lon<0.):
-				lon = lon+360.
-
-		# Latitude    [lat]       [-90, 90]
-		latEntryRaw = self.latEntry.get()
-		if latEntryRaw == "":
-			lat = 5.8833
-		else:
-			lat = float(latEntryRaw)
-			if (lat>90.):
-				lat = lat-90.
-
-		# Ensure that Sea-Surface Temperature is in degrees C, not Kelvin.
-		temp_flag = any(SST>200)
-		if (temp_flag):
-			for i in range(len(SST)):
-				SST[i] = SST[i]-274.15
+		# Get the name of the model that was selected.
+		model = self.v.get()
+		flag = 0 if model == "Roden" else 1
 
 		# Fill coral array with data same size as input vectors.
-		coral = np.zeros(len(time))
-		for i in range(len(time)):
-			coral[i] = sensor.pseudocoral(lat,lon,SST[i],SSS[i],species=speciesInput)
+		cellulose = np.zeros(len(self.time))
+		for i in range(len(self.time)):
+			cellulose[i] = sensor.cellulose_sensor(time[i], self.temp[i], self.precip[i],
+			self.rh[i], self.d180p[i], self.d180s[i], self.d180v, flag)[0]
 
 		# Plot the graph
-		self.a.plot(time, coral)
+		self.a.plot(self.time, cellulose)
 		self.a.set_xlabel('Time')
-		self.a.set_ylabel('Simulated Coral Data')
+		self.a.set_ylabel('Simulated Cellulose Data')
 		self.canvas.draw()
 
 	"""
@@ -186,6 +141,9 @@ class Grapher(tk.Frame):
 	TODO: Make clear button clear entry field contents
 	"""
 	def clear(self):
+		# self.lonEntry.delete(0, tk.END)
+		# self.latEntry.delete(0, tk.END)
+		self.v.set(None)
 		self.a.clear()
 		self.canvas.draw()
 
@@ -195,5 +153,5 @@ Initialize Application.
 if __name__ == "__main__":
     root = tk.Tk()
     Grapher(root)
-    root.geometry("1375x550+50+100")
+    root.geometry("1400x590+30+100")
     root.mainloop()
