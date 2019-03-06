@@ -1,5 +1,9 @@
 import os
 import psm.coral.sensor as sensor
+import psm.agemodels.banded as banded
+import psm.aux_functions.analytical_err_simple as analytical_err_simple
+import psm.aux_functions.analytical_error as analytical_error
+from scipy.stats.mstats import mquantiles
 
 import tkinter as tk
 from tkinter import ttk, filedialog
@@ -28,28 +32,51 @@ class Grapher(tk.Frame):
 		# COEFFICIENT ENTRY BOXES =================================================================
 
 		# Longitude 
-		tk.Label(root, text = "Longitude").grid(row=1, column=0)
+		tk.Label(root, text="Longitude [0, 360]").grid(row=rowIdx, column=0)
 		self.lonEntry = tk.Entry(root)
 		self.lonEntry.grid(row=rowIdx, column=1)
 		rowIdx += 1
 
 		# Latitude 
-		tk.Label(root, text = "Latitude").grid(row=2, column=0)
+		tk.Label(root, text="Latitude [-90, 90]").grid(row=rowIdx, column=0)
 		self.latEntry = tk.Entry(root)
 		self.latEntry.grid(row=rowIdx, column=1)
 		rowIdx += 1
 
+		# Coral Species 
 		species = ["Porites_sp", "Porites_lob", "Porites_lut", "Porites_aus", 
 		"Montast", "Diploas", "Default"]
 
 		self.v = tk.StringVar()
 		self.v.set("default")
-		tk.Label(root, text = "Pick a Coral Species:").grid(row=3, column=0)
+		tk.Label(root, text = "Pick a Coral Species:").grid(row=rowIdx, column=0)
 		for text in species: 
 			b = tk.Radiobutton(root, text=text, variable=self.v, value=text)
 			b.grid(row=rowIdx, column=1, sticky="w")
 			rowIdx+=1
 
+		# ERROR OPTIONS ==========================================================================
+
+		# TODO: ask if want checkboxes or radio buttons? 
+		# is showing it on the right okay?
+
+		# Age Uncertainties
+		self.ageErrorVal = tk.BooleanVar() 
+		self.ageErrorVar = tk.Checkbutton(root, variable=self.ageErrorVal)
+		self.ageErrorVar.grid(row=rowIdx, column=2)
+		tk.Label(root, text = "Add age uncertainties with error rate of:").grid(row=rowIdx, column=0)
+		self.ageErrorEntry = tk.Entry(root)
+		self.ageErrorEntry.grid(row=rowIdx, column=1)
+		rowIdx += 1
+
+		# Analytical Errors
+		self.altErrorVal = tk.BooleanVar() 
+		self.altErrorVar = tk.Checkbutton(root, variable=self.altErrorVal)
+		self.altErrorVar.grid(row=rowIdx, column=2)
+		tk.Label(root, text = "Add simple analytical error with precision of:").grid(row=rowIdx, column=0)
+		self.altErrorEntry = tk.Entry(root)
+		self.altErrorEntry.grid(row=rowIdx, column=1)
+		rowIdx += 1
 
 		# GRAPHER AND BUTTONS ====================================================================
 
@@ -72,7 +99,7 @@ class Grapher(tk.Frame):
 		# Shows the name of the current uploaded file, if any. 
 		tk.Label(root, text="Current File Uploaded:").grid(row=rowIdx, column=0)
 		self.currentFileLabel = tk.Label(root, text="No file")
-		self.currentFileLabel.grid(row=rowIdx, column=1)
+		self.currentFileLabel.grid(row=rowIdx, column=1, columnspan=2)
 		rowIdx+=1
 
 		# Creates graph with given inputs
@@ -87,27 +114,40 @@ class Grapher(tk.Frame):
 		clearButton.grid(row=rowIdx, column=1)
 
 		f = Figure(figsize=(10,5), dpi=100)
-		self.a = f.add_subplot(111)
+		self.plt = f.add_subplot(111)
 		self.canvas = FigureCanvasTkAgg(f, root)
-		self.canvas.get_tk_widget().grid(row=0, column=3, rowspan=16, columnspan=10, sticky="nw")
+		self.canvas.get_tk_widget().grid(row=0, column=3, rowspan=16, columnspan=15, sticky="nw")
 
 	"""
 	Creates example graph as seen in paper. 
 	"""
 	def exampleGraph(self): 
 		# clear whatever is currently on the canvas 
-		self.a.clear()
+		self.plt.clear()
 		# Time values 
-		xVals = np.arange(850,1850,1)
+		self.time = np.arange(850,1850,1)
 		# Get y-values from driver script 
-		yVals = np.load('coral/simulated_coral_d18O.npy')
-		# ASK: WHAT IS CORAL AGE PERTURBED? error bars 
-		errorVals = np.load('coral/coral_age_perturbed.npy')
+		coral = np.load('coral/simulated_coral_d18O.npy')
+		# Plot age uncertainties - if selected 
+		if (self.ageErrorVal.get()):
+			# Get the input error rate value
+			rateRaw = self.ageErrorEntry.get()
+			if rateRaw == "":
+				tk.messagebox.showerror("Error", "Invalid Rate Value")
+				return
+			rate = float(rateRaw)
+			# Calculate the age uncertanties
+			X = coral
+			X = X.reshape(len(X),1)
+			tp, Xp, tmc = banded.bam_simul_perturb(X, self.time, param=[rate, rate])
+			q1=mquantiles(Xp,prob=[0.025,0.975],axis=1)
+			q2=self.time
+			self.plt.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations, CI',facecolor='gray',alpha=0.5)
 
 		# Plot the graph
-		self.a.plot(xVals, yVals)
-		self.a.set_xlabel('Time')
-		self.a.set_ylabel('Simulated Coral Data')
+		self.plt.plot(self.time, coral)
+		self.plt.set_xlabel('Time')
+		self.plt.set_ylabel('Simulated Coral Data')
 		self.canvas.draw()
 
 	"""
@@ -121,14 +161,23 @@ class Grapher(tk.Frame):
 		# Get the entry fields.  
 		self.time=data['TIME']
 		self.SST=data['SST']
-		self.SSS=data['SSS']		
-
+		self.SSS=data['SSS']	
+		# TODO: Check that this error catching actually works
+		if (self.time.shape != self.SST.shape or self.SST.shape != self.SSS.shape or self.time.shape != self.SSS.shape):
+			tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")
+		# print(self.time.shape, self.SST.shape, self.SSS.shape)	
+	
 	"""
 	Generates coral data based on input data and model, and graphs result.
 	"""
 	def generateGraph(self): 
+		# Make sure user has uploaded data 
+		if (self.time.size == 0 or self.SST.size == 0 or self.SSS.size == 0):
+			tk.messagebox.showerror("Error", "Missing input data")
+			return
+
 		# Clear whatever is currently on the canvas 
-		self.a.clear()
+		self.plt.clear()
 
 		# Get the name of the species that was selected. 
 		speciesInput = self.v.get()
@@ -139,12 +188,10 @@ class Grapher(tk.Frame):
 			lon = 197.92
 		else:
 			lon = float(lonEntryRaw)
-			# Longitude must be in the range [0, 360] or [-180, 180]
-			if (lon > 360 or lon < -180):
+			# Longitude must be in the range [0, 360]
+			if (lon > 360):
 				tk.messagebox.showerror("Error", "Invalid Longitude Value")
 				return
-			if (lon < 0.):
-				lon += 360.
 
 		# Get the latitude value. 
 		latEntryRaw = self.latEntry.get()
@@ -152,12 +199,10 @@ class Grapher(tk.Frame):
 			lat = 5.8833
 		else:
 			lat = float(latEntryRaw)
-			# Latitude must be in the range [-90, 90] or [0, 180]
-			if (lat < -90 or lat > 180):
+			# Latitude must be in the range [-90, 90] 
+			if (lat < -90):
 				tk.messagebox.showerror("Error", "Invalid Latitude Value")
 				return
-			if (lat > 90.):
-				lat -= 90.
 
 		# Ensure that Sea-Surface Temperature is in degrees C, not Kelvin.
 		temp_flag = any(self.SST>200)
@@ -170,10 +215,51 @@ class Grapher(tk.Frame):
 		for i in range(len(self.time)):
 			coral[i] = sensor.pseudocoral(lat,lon,self.SST[i],self.SSS[i],species=speciesInput)
 
+		# Plot age uncertainties - if selected 
+		if (self.ageErrorVal.get()):
+			# Get the input error rate value
+			rateRaw = self.ageErrorEntry.get()
+			if rateRaw == "":
+				tk.messagebox.showerror("Error", "Invalid Rate Value")
+				return
+			rate = float(rateRaw)
+			# Calculate the age uncertanties
+			X = coral
+			X = X.reshape(len(X),1)
+			tp, Xp, tmc = banded.bam_simul_perturb(X, self.time, param=[rate, rate])
+			q1=mquantiles(Xp,prob=[0.025,0.975],axis=1)
+			q2=self.time
+			self.plt.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations, CI',facecolor='gray',alpha=0.5)
+
+		# Plot analytical errors - if selected
+		if (self.altErrorVal.get()):
+			# Get the input error rate value
+			sigmaRaw = self.altErrorEntry.get()
+			if sigmaRaw == "":
+				tk.messagebox.showerror("Error", "Invalid Rate Value")
+				return
+			sigma = float(sigmaRaw)
+			X = coral
+			X = X.reshape(len(X),1)
+			q1, q2 = analytical_err_simple.analytical_err_simple(X,sigma)
+			q1 = q1.reshape(len(self.time))
+			q2 = q2.reshape(len(self.time))
+			self.plt.fill_between(self.time,q1,q2,label='100 Analytical Error Realizations, CI',facecolor='darkgray',alpha=0.5)
+
+		"""
+		for analytical errors need to use quantile
+		q1=mquantiles(Xp,prob=[0.025,0.975],axis=1)
+		q2=self.time
+
+		add error rates to clear function 
+
+		download options - data and figure 
+		"""
+
 		# Plot the graph
-		self.a.plot(self.time, coral)
-		self.a.set_xlabel('Time')
-		self.a.set_ylabel('Simulated Coral Data')
+		self.plt.plot(self.time, coral)
+		self.plt.set_xlabel('Time')
+		self.plt.set_ylabel('Simulated Coral Data')
 		self.canvas.draw()
 
 	"""
@@ -184,7 +270,7 @@ class Grapher(tk.Frame):
 		self.lonEntry.delete(0, tk.END)
 		self.latEntry.delete(0, tk.END)
 		self.v.set(None)
-		self.a.clear()
+		self.plt.clear()
 		self.canvas.draw()
 
 """
@@ -193,5 +279,5 @@ Initialize Application.
 if __name__ == "__main__":
     root = tk.Tk()
     Grapher(root)
-    root.geometry("1400x590+30+100")
+    root.geometry("1440x620+5+100")
     root.mainloop()
