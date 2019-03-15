@@ -8,6 +8,7 @@ from scipy.stats.mstats import mquantiles
 import tkinter as tk
 from tkinter import ttk, filedialog
 import numpy as np
+import pandas as pd
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -15,14 +16,18 @@ from matplotlib.figure import Figure
 
 LARGE_FONT = ("Verdana", 25) 
 
-
 class Grapher(tk.Frame):
 
 	def __init__(self, parent, *args, **kwargs):
 		tk.Frame.__init__(self, parent, *args, **kwargs)
 		self.parent = parent
 		self.parent.title("Coral PRSYM Models")
-		scrollbar = tk.Scrollbar(root, orient="vertical")
+
+		# Initialize empty arrays for data saving 
+		self.ageq1 = np.array([])
+		self.gaussq1 = np.array([])
+		self.simpleq1 = np.array([])
+		self.simpleq2 = np.array([])
 
 		# =========================================================================================
 		# SENSOR DATA
@@ -140,15 +145,25 @@ class Grapher(tk.Frame):
 		# =========================================================================================
 		# SAVE OPTIONS 
 		# =========================================================================================	
-		tk.Label(root, text = "Save coral data as:").grid(row=19, column=6, sticky="E")
+		tk.Label(root, text = "Save sensor data as:").grid(row=18, column=6, sticky="E")
 		dataTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtData)
-		dataTxtbutton.grid(row=19, column=8, ipadx=20, ipady=3, sticky="W")
+		dataTxtbutton.grid(row=18, column=8, ipadx=20, ipady=3, sticky="W")
 		dataNpybutton = tk.Button(root, text=".npy", command=self.saveNpyData)
-		dataNpybutton.grid(row=19, column=9, ipadx=20, ipady=3, sticky="W")
+		dataNpybutton.grid(row=18, column=9, ipadx=20, ipady=3, sticky="W")
+		dataCsvbutton = tk.Button(root, text=".npy", command=self.saveCsvData)
+		dataCsvbutton.grid(row=18, column=10, ipadx=20, ipady=3, sticky="W")
+
+		tk.Label(root, text = "Save error data as:").grid(row=19, column=6, sticky="E")
+		errorTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtErrors)
+		errorTxtbutton.grid(row=19, column=8, ipadx=20, ipady=3, sticky="W")
+		errorCsvbutton = tk.Button(root, text=".csv", command=self.saveCsvErrors)
+		errorCsvbutton.grid(row=19, column=9, ipadx=20, ipady=3, sticky="W")
 
 		tk.Label(root, text = "Save graph as:").grid(row=20, column=6, sticky="E")
-		dataTxtbutton = tk.Button(root, text=".png", command=self.savePngGraph)
-		dataTxtbutton.grid(row=20, column=8, ipadx=20, ipady=3, sticky="W")
+		graphPNGbutton = tk.Button(root, text=".png", command=self.savePngGraph)
+		graphPNGbutton.grid(row=20, column=8, ipadx=20, ipady=3, sticky="W")
+		graphPDFbutton = tk.Button(root, text=".pdf", command=self.savePdfGraph)
+		graphPDFbutton.grid(row=20, column=9, ipadx=20, ipady=3, sticky="W")
 
 		# =========================================================================================
 		# GRAPH
@@ -157,28 +172,89 @@ class Grapher(tk.Frame):
 		self.plt = self.f.add_subplot(111)
 		self.canvas = FigureCanvasTkAgg(self.f, root)
 		self.canvas.get_tk_widget().grid(row=0, column=3, rowspan=16, columnspan=15, sticky="nw")
+		self.plt.set_xlabel('Time')
+		self.plt.set_ylabel('Simulated Coral Data')
 
 	"""
-	Saves current graph.
+	Saves current graph as pdf.
+	"""
+	def savePdfGraph(self):
+		self.f.savefig('graph.pdf')
+		tk.messagebox.showinfo("Sucess", "Saved graph as graph.pdf")
+
+	"""
+	Saves current graph as png.
 	"""
 	def savePngGraph(self):
-		self.f.savefig('test.png')
+		self.f.savefig('graph.png')
 		tk.messagebox.showinfo("Sucess", "Saved graph as graph.png")
 
 	"""
-	Saves the coral data into a numpy file. 
+	Saves sensor data into a numpy file. 
 	"""
 	def saveNpyData(self):
 		np.save("simulated_coral_d18O.npy", self.coral)
 		tk.messagebox.showinfo("Sucess", "Saved simulated data as 'simulated_coral_d18O.npy'")
 
 	"""
-	Saves the coral data into a text file. 
+	Saves sensor data into a text file. 
 	"""
 	def saveTxtData(self):
-		# np.save("simulated_coral_d18O.npy", self.coral)
 		np.savetxt("simulated_coral_d18O.txt", self.coral, newline=" ")
 		tk.messagebox.showinfo("Sucess", "Saved simulated data as 'simulated_coral_d18O.txt'")
+
+	"""
+	Saves sensor data into a text file. 
+	"""
+	def saveTxtData(self):
+		np.savetxt("simulated_coral_d18O.csv", self.coral, newline=" ")
+		tk.messagebox.showinfo("Sucess", "Saved simulated data as 'simulated_coral_d18O.csv'")
+	
+	"""
+	Saves sensor data into a csv file. 
+	"""
+	def saveCsvData(self):
+		df = pd.DataFrame({"Sensor": self.coral})
+		df.to_csv("sensor_data.csv", index=False)
+		tk.messagebox.showinfo("Sucess", "Saved error data as 'sensor_data.csv'")
+
+
+	"""
+	Saves error data into a text file. 
+	"""
+	def saveCsvErrors(self):
+		df = pd.DataFrame({})
+		if (self.ageq1.size != 0):
+			df["Age_Q1"] = self.ageq1[:,0]
+			df["Age_Q2"] = self.ageq1[:,1]
+
+		if (self.gaussq1.size != 0):
+			df["GaussianAnalytical_Q1"] = self.gaussq1[:,0]
+			df["GaussianAnalytical_Q2"] = self.gaussq1[:,1]
+		
+		if (self.simpleq1.size != 0 and self.simpleq2.size != 0):
+			df["SimpleAnalytical_Q1"] = self.simpleq1
+			df["SimpleAnalytical_Q2"] = self.simpleq2
+			
+		df.to_csv("error_data.csv", index=False)
+		tk.messagebox.showinfo("Sucess", "Saved error data as 'error_data.csv'")
+
+	"""
+	Saves error data into a text file. 
+	"""
+	def saveTxtErrors(self):	
+		if (self.ageq1.size != 0):
+			np.savetxt("age_errors.txt", (self.ageq1[:,0], self.ageq1[:,1]), newline=" ")
+			tk.messagebox.showinfo("Sucess", 
+				"Saved age error data as 'age_errors.txt' where Q1 is the first row and Q2 is the second row.")
+		if (self.gaussq1.size != 0):
+			np.savetxt("gaussian_errors.txt", (self.gaussq1[:,0], self.gaussq1[:,1]), newline=" ")
+			tk.messagebox.showinfo("Sucess", 
+				"Saved gaussian analytical error data as 'gaussian_errors.txt' where Q1 is the first row and Q2 is the second row.")
+		if (self.simpleq1.size != 0 and self.simpleq2.size != 0):
+			np.savetxt("simple_errors.txt", (self.simpleq1, self.simpleq2), newline=" ")
+			tk.messagebox.showinfo("Sucess", 
+				"Saved simple analytical error data as 'simple_errors.txt' where Q1 is the first row and Q2 is the second row.")
 
 	"""
 	Creates example graph as seen in paper. 
@@ -190,49 +266,67 @@ class Grapher(tk.Frame):
 		self.time = np.arange(850,1850,1)
 		# Get y-values from driver script 
 		self.coral = np.load('coral/simulated_coral_d18O.npy')
-		# Plot age uncertainties, if selected 
+
+		# Reshape coral data for uncertainty calculations 
+		X = self.coral
+		X = X.reshape(len(X),1)
+
+		# Plot age uncertainties - if selected 
 		if (self.ageErrorVal.get()):
-			# Get the input error rate value
+			# Get input error rate
 			rateRaw = self.ageErrorEntry.get()
 			if rateRaw == "":
 				tk.messagebox.showerror("Error", "Invalid Rate Value")
 				return
 			rate = float(rateRaw)
 			# Calculate the age uncertanties
-			X = self.coral
-			X = X.reshape(len(X),1)
 			tp, Xp, tmc = banded.bam_simul_perturb(X, self.time, param=[rate, rate])
-			q1=mquantiles(Xp,prob=[0.025,0.975],axis=1)
+			self.ageq1=mquantiles(Xp,prob=[0.025,0.975],axis=1)
 			q2=self.time
-			self.plt.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations, CI',facecolor='gray',alpha=0.5)
+			# Graph quantiles 
+			self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
+				label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
+
+		# Plot simple analytical errors - if selected
+		if (self.simAltErrorVal.get()):
+			# Get input error rate
+			sigmaRaw = self.simAltErrorEntry.get()
+			if sigmaRaw == "":
+				tk.messagebox.showerror("Error", "Invalid Rate Value")
+				return
+			sigma = float(sigmaRaw)
+			self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(X,sigma)
+			# Reshape quanties for graphing
+			self.simpleq1 = self.simpleq1.reshape(len(self.time))
+			self.simpleq2 = self.simpleq2.reshape(len(self.time))
+			# Graph quantiles 
+			self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
+				label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
 		# Plot gaussian analytical errors - if selected
 		if (self.altErrorVal.get()):
-			# Get the input error rate value
+			# Get input error rate
 			sigmaRaw = self.altErrorEntry.get()
 			if sigmaRaw == "":
 				tk.messagebox.showerror("Error", "Invalid Rate Value")
 				return
 			sigma = float(sigmaRaw)
+			inputs = len(X)
 			X = self.coral
-			X = X.reshape(len(X),1)
-			Xn = analytical_error.analytical_error(X, sigma, 1000)
-			print(Xn.shape) # (1000, 1000, 1000)
-			q1 = mquantiles(Xn,prob=[0.025,0.975],axis=1)
-			q2 = self.time
-			# q1 = Xn[:, [0]] # (1000, 1, 100)
-			# q2 = Xn[:, [1]] # (1000, 1, 100)
-			print(q1.shape)
-			self.plt.fill_between(self.time,q1,q2,label='100 Analytical Error Realizations, CI', 
-				facecolor='darkgray',alpha=0.5)
-			# self.plt.fill_between(q2,q1[:,0],q1[:,1],label='100 Gaussian Analytical Error Realizations, CI', 
-			# 	facecolor='yellow',alpha=0.5)
+			X = X.reshape(inputs,1)
+			## TO ASK: HAD TO CHANGE NSAMPLES TO MATCH NUMBER OF CORAL DATA POINTS
+			Xn = analytical_error.analytical_error(X, sigma, inputs)
+			Xn = Xn[:,0,:].reshape(inputs, inputs) 
+			self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
+			q2=self.time
+			self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
+				label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
 		# Plot the graph
 		self.plt.plot(self.time, self.coral)
+		self.canvas.draw()
 		self.plt.set_xlabel('Time')
 		self.plt.set_ylabel('Simulated Coral Data')
-		self.canvas.draw()
 
 	"""
 	Takes a CSV file and saves the Time, SSS, and SST values. 
@@ -246,10 +340,8 @@ class Grapher(tk.Frame):
 		self.time=data['TIME']
 		self.SST=data['SST']
 		self.SSS=data['SSS']	
-		# TODO: Check that this error catching actually works
 		if (self.time.shape != self.SST.shape or self.SST.shape != self.SSS.shape or self.time.shape != self.SSS.shape):
-			tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")
-		# print(self.time.shape, self.SST.shape, self.SSS.shape)	
+			tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")	
 	
 	"""
 	Generates coral data based on input data and model, and graphs result.
@@ -313,11 +405,11 @@ class Grapher(tk.Frame):
 			rate = float(rateRaw)
 			# Calculate the age uncertanties
 			tp, Xp, tmc = banded.bam_simul_perturb(X, self.time, param=[rate, rate])
-			q1=mquantiles(Xp,prob=[0.025,0.975],axis=1)
+			self.ageq1=mquantiles(Xp,prob=[0.025,0.975],axis=1)
 			q2=self.time
 			# Graph quantiles 
-			self.plt.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations, CI', 
-				facecolor='gray',alpha=0.5)
+			self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
+				label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
 
 		# Plot simple analytical errors - if selected
 		if (self.simAltErrorVal.get()):
@@ -327,13 +419,13 @@ class Grapher(tk.Frame):
 				tk.messagebox.showerror("Error", "Invalid Rate Value")
 				return
 			sigma = float(sigmaRaw)
-			q1, q2 = analytical_err_simple.analytical_err_simple(X,sigma)
+			self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(X,sigma)
 			# Reshape quanties for graphing
-			q1 = q1.reshape(len(self.time))
-			q2 = q2.reshape(len(self.time))
+			self.simpleq1 = self.simpleq1.reshape(len(self.time))
+			self.simpleq2 = self.simpleq2.reshape(len(self.time))
 			# Graph quantiles 
-			self.plt.fill_between(self.time,q1,q2,label='100 Analytical Error Realizations, CI', 
-				facecolor='darkgray',alpha=0.5)
+			self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
+				label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
 		# Plot gaussian analytical errors - if selected
 		if (self.altErrorVal.get()):
@@ -343,19 +435,24 @@ class Grapher(tk.Frame):
 				tk.messagebox.showerror("Error", "Invalid Rate Value")
 				return
 			sigma = float(sigmaRaw)
-			# Get error values 
-			q1, q2 = analytical_error.analytical_error(X,sigma, 100)
-			q1 = mquantiles(Xp,prob=[0.025,0.975],axis=1)
-			q2 = self.time
-			# Graph quantiles 
-			self.plt.fill_between(q2,q1[:,0],q1[:,1],label='100 Analytical Error Realizations, CI', 
-				facecolor='yellow',alpha=0.5)
+			inputs = len(X)
+			X = self.coral
+			X = X.reshape(inputs,1)
+			# print(X.shape) # (1001, 1)
+			## TO ASK: HAD TO CHANGE NSAMPLES TO MATCH NUMBER OF CORAL DATA POINTS
+			Xn = analytical_error.analytical_error(X, sigma, inputs)
+			# print(Xn.shape) # (1001, 1001, 1000)
+			Xn = Xn[:,0,:].reshape(inputs, inputs) 
+			self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
+			q2=self.time
+			self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
+				label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
 		# Plot the graph
-		self.plt.plot(self.time, coral)
+		self.plt.plot(self.time, self.coral)
+		self.canvas.draw()
 		self.plt.set_xlabel('Time')
 		self.plt.set_ylabel('Simulated Coral Data')
-		self.canvas.draw()
 
 	"""
 	Clears all content in the graph. 
