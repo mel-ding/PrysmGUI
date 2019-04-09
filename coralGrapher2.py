@@ -9,11 +9,19 @@ from scipy.stats.mstats import mquantiles
 import tkinter as tk
 from tkinter import ttk
 from tkinter import ttk, filedialog
+
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+
+# import scipy.signal as sig
+# import scipy.stats.distributions as dist
+# import nitime.algorithms as tsa
+# import nitime.utils as utils
+# from nitime.viz import winspect
+# from nitime.viz import plot_spectral_estimate
 
 LARGE_FONT= ("Verdana", 25)
 

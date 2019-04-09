@@ -60,7 +60,7 @@ import random
 # 1.0 Function Bam Simul Perturb
 #====================================================================
 
-def bam_simul_perturb(X,t,param=[0.01,0.01],name='poisson',ns=1000,resize=0):
+def bam_simul_perturb(X,t,param=[0.01,0.01],name='poisson',ns=100,resize=0):
 
 
 # 1.0 Prep Data
