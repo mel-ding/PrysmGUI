@@ -1,16 +1,15 @@
-import os
 import psm.coral.sensor as sensor
 import psm.agemodels.banded as banded
 import psm.aux_functions.analytical_err_simple as analytical_err_simple
 import psm.aux_functions.analytical_error as analytical_error
-from scipy.stats.mstats import mquantiles
 
-import nitime.algorithms as tsa
-
-import tkinter as tk
+import tkinter as tk 	
 from tkinter import ttk, filedialog
 import numpy as np
+from scipy.stats.mstats import mquantiles
+import nitime.algorithms as tsa
 import pandas as pd
+
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -384,7 +383,7 @@ class Grapher(tk.Frame):
 			if (self.R2 != float(sigmaRaw) or self.newData == True):
 				sigma = float(sigmaRaw)
 				self.R2 = sigma 
-				self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(X,sigma)
+				self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
 				# Reshape quanties for graphing
 				self.simpleq1 = self.simpleq1.reshape(len(self.time))
 				self.simpleq2 = self.simpleq2.reshape(len(self.time))
@@ -407,12 +406,8 @@ class Grapher(tk.Frame):
 			if (self.R3 != float(sigmaRaw) or self.newData == True):
 				sigma = float(sigmaRaw)
 				self.R3 = sigma 
-				inputs = len(X)
-				X = self.coral
-				X = X.reshape(inputs,1)
-				## TO ASK: HAD TO CHANGE NSAMPLES TO MATCH NUMBER OF CORAL DATA POINTS
-				Xn = analytical_error.analytical_error(X, sigma, inputs)
-				Xn = Xn[:,0,:].reshape(inputs, inputs) 
+				Xn = analytical_error.analytical_error(self.X, sigma, nsamples=100)
+				Xn = Xn[:,0,:].reshape(len(self.X), 100) 
 				self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
 				q2=self.time
 				self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
