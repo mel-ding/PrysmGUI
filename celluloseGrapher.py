@@ -51,9 +51,6 @@ class Grapher(tk.Frame):
 
 		# =========================================================================================
 		# SENSOR DATA 
-		# User should be able to toggle the flag and iso
-		# radio button - Rodens or Evans, map to 1 or 0 
-		# iso - have the d180 inputs?
 		# =========================================================================================
 
 		# Title of Page 
@@ -63,32 +60,24 @@ class Grapher(tk.Frame):
 		rowIdx = 1
 
 		# =========================================================================================
-		# COEFFICIENT ENTRY BOXES
+		# FLAG TOGGLES 
 		# =========================================================================================
 
-		# Longitude 
-		# tk.Label(root, text="Longitude (Range 0 to 360)").grid(row=rowIdx, column=0, sticky="E")
-		# self.lonEntry = tk.Entry(root)
-		# self.lonEntry.grid(row=rowIdx, column=1)
-		# rowIdx += 1
+		# Rodens or Evans 
+		self.v = tk.IntVar()
+		tk.Label(root, text = "Pick a model:").grid(row=rowIdx, column=0, sticky="E")
+		tk.Radiobutton(root, text="Roden", variable=self.v, value=0).grid(row=rowIdx, column=1, sticky="w")
+		rowIdx += 1
+		tk.Radiobutton(root, text="Evans", variable=self.v, value=1).grid(row=rowIdx, column=1, sticky="w")
+		rowIdx += 1
 
-		# Latitude 
-		# tk.Label(root, text="Latitude (Range -90 to 90)").grid(row=rowIdx, column=0, sticky="E")
-		# self.latEntry = tk.Entry(root)
-		# self.latEntry.grid(row=rowIdx, column=1)
-		# rowIdx += 1
-
-		# Coral Species 
-		# species = ["Porites_sp", "Porites_lob", "Porites_lut", "Porites_aus", 
-		# "Montast", "Diploas", "Default"]
-
-		# self.v = tk.StringVar()
-		# self.v.set("default")
-		# tk.Label(root, text = "Pick a Cellulose Species:").grid(row=rowIdx, column=0, sticky="E")
-		# for text in species: 
-		# 	b = tk.Radiobutton(root, text=text, variable=self.v, value=text)
-		# 	b.grid(row=rowIdx, column=1, sticky="w")
-		# 	rowIdx+=1
+		# d180 inputs?
+		self.inputs = tk.IntVar()
+		tk.Label(root, text = "Do you have d180 data?").grid(row=rowIdx, column=0, sticky="E")
+		tk.Radiobutton(root, text="No", variable=self.inputs, value=0).grid(row=rowIdx, column=1, sticky="w")
+		rowIdx += 1
+		tk.Radiobutton(root, text="Yes", variable=self.inputs, value=1).grid(row=rowIdx, column=1, sticky="w")
+		rowIdx += 1
 
 		# =========================================================================================
 		# ERROR OPTIONS
@@ -134,8 +123,8 @@ class Grapher(tk.Frame):
 		# Allows user to upload data. 
 		tk.Label(root, 
 			text="Upload a single CSV file with columns and the headers \n \"TIME\", \"PRECIPITATION\", \"HUMIDITY\", \"TEMPERATURE\", \n \"D180_VAPOR\", \"D180_SOIL\", \"D180_PRECIPITATION\"."
-			).grid(row=rowIdx, columnspan=3, rowspan=3)
-		rowIdx += 3
+			).grid(row=rowIdx, columnspan=3, rowspan=4)
+		rowIdx += 4
 		tk.Label(root, text = "Click to upload your data:").grid(row=rowIdx, column=0, sticky="E")
 		graphButton = tk.Button(root, text="Upload Data", command=self.uploadData)
 		graphButton.grid(row=rowIdx, column=1, ipadx=30, ipady=3, sticky="W")
@@ -428,7 +417,6 @@ class Grapher(tk.Frame):
 		if (self.PS == True):
 			self.ax.remove()
 			self.ax2.remove()
-			self.ax3.remove()
 			self.plt = self.f.add_subplot(111)
 			self.canvas = FigureCanvasTkAgg(self.f, root)
 			self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")	
@@ -467,10 +455,14 @@ class Grapher(tk.Frame):
 	def dataPrep(self): 
 
 		# Make sure user has uploaded data 
-		if (self.time.shape == 0 or self.precip.shape == 0 or self.rh.shape == 0 or 
-			self.d180s.shape == 0 or self.d180v.shape == 0 or self.d180p.shape == 0):
+		if (self.time.size == 0 or self.precip.size == 0 or self.rh.size == 0 or self.temp.size == 0):
 			tk.messagebox.showerror("Error", "Missing input data")
 			return
+
+		if (self.inputs.get() == 1):
+			if (self.d180s.size == 0 or self.d180v.size == 0 or self.d180p.size == 0): 
+				tk.messagebox.showerror("Error", "Missing input data")
+				return
 
 		# Data has not changed, just return 
 		if (self.newData == False): 
@@ -479,9 +471,17 @@ class Grapher(tk.Frame):
 		# Clear whatever is currently on the canvas 
 		self.plt.clear()
 
+		# Get which model user selected
+		model = self.v.get()
+
+		# Get indication is user input d180 data or not 
+		d180_data = False
+		if (self.inputs.get() == 1):
+			d180_data = True 
+
 		# Fill coral array with data same size as input vectors.
 		self.cell = sensor.cellulose_sensor(self.time,self.temp,self.precip,self.rh, 
-			self.d180s,self.d180p,self.d180v,flag=1.0,iso=True)
+			self.d180s,self.d180p,self.d180v,flag=model,iso=d180_data)
 
 		# Reshape coral data for uncertainty calculations 
 		self.X = self.cell
@@ -500,7 +500,6 @@ class Grapher(tk.Frame):
 		if (self.PS == True): 
 			self.ax.remove()
 			self.ax2.remove()
-			self.ax3.remove()
 			self.PS = False 
 
 		# Plot age uncertainties - if selected 
@@ -589,7 +588,8 @@ class Grapher(tk.Frame):
 	"""
 	def generatePS(self):
 
-		if (self.example == False):
+		if (self.example == False or self.temp.size == 0):
+			print("HELLO")
 			self.dataPrep()
 
 		if (self.example == True): 
@@ -603,14 +603,17 @@ class Grapher(tk.Frame):
 		self.PS = True 
 
 		if (self.newData == True):
-			CST = self.SST - np.mean(self.SST)
-			CSS = self.SSS - np.mean(self.SSS)
-			Cd18O = self.cell - np.mean(self.cell)
+			TT = self.temp - np.mean(self.temp)
+			TS = self.d180s - np.mean(self.d180s)	
+			TC = self.cell - np.mean(self.cell)
 
-			CSTf, CSTpsd_mt, CSTnu = tsa.multi_taper_psd(CST, Fs=1.0,adaptive=False, jackknife=False)
-			CSSf, CSSpsd_mt, CSSnu = tsa.multi_taper_psd(CSS, Fs=1.0,adaptive=False, jackknife=False)
-			self.Cd18Of, self.Cd18Opsd_mt, Cd18Onu = tsa.multi_taper_psd(Cd18O, Fs=1.0,adaptive=False, jackknife=False)
+			TTf, TTpsd_mt, TTnu = tsa.multi_taper_psd(TT, Fs=1.0,adaptive=False, jackknife=False)
+			TCf, TCpsd_mt, TCnu = tsa.multi_taper_psd(TC, Fs=1.0,adaptive=False, jackknife=False)
 
+
+		t=np.arange(1000,2005,1)
+		dt=1.0
+		
 		# Get input error rate, if specified 
 		rateRaw = self.ageErrorEntry.get()
 		if rateRaw == "":
@@ -626,31 +629,26 @@ class Grapher(tk.Frame):
 			Xpm = self.Xp - np.mean(self.Xp, axis=0)
 
 			# DO SAME CALCULATION IN LOOP FOR ALL AGE UNCERTAINTY VECTORS
-			Xpf=np.zeros((len(CSTf),len(Xpm[1])))
-			Xpsd_mt=np.zeros((len(CSTf),len(Xpm[1])))
-			Xpnu=np.zeros((len(CSTf),len(Xpm[1])))
+			Xpf=np.zeros((len(TTf),len(Xpm[1])))
+			Xpsd_mt=np.zeros((len(TTf),len(Xpm[1])))
+			Xpnu=np.zeros((len(TTf),len(Xpm[1])))
 
-			# Error here: ValueError: could not broadcast input array from shape (501) into shape (6007)
 			for i in range(len(Xpm[1])):
 				Xpf[:,i],Xpsd_mt[:,i],Xpnu[:,i]=tsa.multi_taper_psd(Xpm[:,i],Fs=1.0,adaptive=False, jackknife=False)
 			# Compute quantiles for spectra
 			q1=mquantiles(Xpsd_mt,prob=[0.025,0.975],axis=1)
 			# x axis for quantile of spectra:
-			q2=Xpf[:,0]			
+			q2=Xpf[:,0]		
 
 		# =========================================================================================
 		
-		self.ax=self.f.add_subplot(311)
+		self.ax=self.f.add_subplot(211)
 		self.ax.spines["top"].set_visible(False)  
 		self.ax.spines["right"].set_visible(False) 
-		self.ax.loglog(CSTf,CSTpsd_mt, label='SST',color='red')
-		self.ax.loglog(CSSf,CSSpsd_mt, label='SSS (PSU)',color='LightSeaGreen')
+		self.ax.loglog(TCf,TCpsd_mt,color='DarkGreen')
 		self.ax.tick_params(axis="both", which="both", bottom="on", top="off",  
 		                labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
 		self.ax.minorticks_off()
-		self.ax.set_title(r'ENVIRONMENT', color='gray')
-		self.ax.set_xlabel(r'Period (Years)')
-		self.ax.set_ylabel(r'PSD')
 
 		# Change the x-tick labels to something reasonable
 		pertick = [500,200,100,50,20,10,8,6,4,2]
@@ -663,51 +661,31 @@ class Grapher(tk.Frame):
 		self.ax.set_xticklabels(pertick_labels)
 		self.ax.grid('on',axis='y',color='DimGray')
 		self.ax.set_xlim([1./550.,0.4])
-		self.ax.set_ylim([1e-3, 1e1])
+		self.ax.set_ylim([1e-2, 1e0])
+		self.ax.set_title(r'ENVIRONMENT', color='gray')
+		self.ax.set_xlabel(r'Period (Years)')
+		self.ax.set_ylabel(r'PSD')
 		self.ax.legend(loc=3,fontsize=11,frameon=False)
 
 		# =========================================================================================
 
-		self.ax2=self.f.add_subplot(312)
+		self.ax2=self.f.add_subplot(212)
 		self.ax2.spines["top"].set_visible(False)  
 		self.ax2.spines["right"].set_visible(False)  
-		self.ax2.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color='DarkOrange')
-		self.ax2.set_title(r'SENSOR', color='gray')
-		self.ax2.set_xlabel(r'Period (Years)')
+		# Observation purturbed age ensemble here.
+		self.ax2.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations, CI',facecolor='gray',alpha=0.5)
+		self.ax2.loglog(TCf,TCpsd_mt,color='DarkGreen')
+		self.ax2.set_title(r'OBSERVATION',fontsize=11, color='gray')
+		self.ax2.set_xlabel(r'Frequency (Years)')
 		self.ax2.set_ylabel(r'PSD')
 		self.ax2.tick_params(axis="both", which="both", bottom="on", top="off",  
 		                labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
 		self.ax2.minorticks_off()
-
 		self.ax2.grid('on',axis='y',color='DimGray')
-		self.ax2.set_xticks(xtick)
-		self.ax2.set_xticklabels(pertick_labels)
 		self.ax2.set_xlim([1./550.,0.4])
-		self.ax2.set_ylim([1e-3, 1])
+		self.ax2.set_ylim([1e-2, 1e0])
 		self.ax2.legend(loc=3,fontsize=11,frameon=False)
 
-		# =========================================================================================
-
-		self.ax3=self.f.add_subplot(313)
-		self.ax3.spines["top"].set_visible(False)  
-		self.ax3.spines["right"].set_visible(False)  
-		# Observation purturbed age ensemble here.
-		self.ax3.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations (4%), CI',facecolor='gray',alpha=0.5)
-		self.ax3.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color='DarkOrange')
-		self.ax3.tick_params(axis="both", which="both", bottom="on", top="off",  
-		                labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
-		self.ax3.minorticks_off()
-		self.ax3.set_title(r'OBSERVATION', color='gray')
-		self.ax3.set_xlabel(r'Period (Years)')
-		self.ax3.set_ylabel(r'PSD')
-
-		self.ax3.set_xticks(xtick)
-		self.ax3.set_xticklabels(pertick_labels)
-		self.ax3.grid('on',axis='y',color='DimGray')
-		self.ax3.set_xlim([1./550.,0.4])
-		self.ax3.set_ylim([1e-3, 1])
-		self.ax3.legend(loc=3,fontsize=11,frameon=False)
-	
 		# =========================================================================================
 
 		self.f.subplots_adjust(hspace=.95)
@@ -722,7 +700,6 @@ class Grapher(tk.Frame):
 		if (self.PS == True):
 			self.ax.cla()
 			self.ax2.cla() 
-			self.ax3.cla()
 		self.plt.clear()
 		self.canvas.draw()
 
@@ -736,6 +713,8 @@ class Grapher(tk.Frame):
 		self.simAltErrorEntry.delete(0, tk.END)
 		self.ageErrorEntry.delete(0, tk.END)
 		self.altErrorEntry.delete(0, tk.END)
+		self.v.set(None)
+		self.inputs.set(None)
 
 
 """
