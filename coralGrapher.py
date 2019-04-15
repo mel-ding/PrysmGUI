@@ -426,7 +426,7 @@ class Grapher(tk.Frame):
 		self.plt.set_title(r'SENSOR')
 		self.plt.set_xlabel('Time')
 		self.plt.set_ylabel('Simulated Coral Data')		
-		self.plt.plot(self.time, self.coral)
+		self.plt.plot(self.time, self.coral, color="#ff6053")
 		self.canvas.draw()
 
 	"""
@@ -595,7 +595,7 @@ class Grapher(tk.Frame):
 		self.plt.set_title(r'SENSOR')
 		self.plt.set_xlabel('Time')
 		self.plt.set_ylabel('Simulated Coral Data')
-		self.plt.plot(self.time, self.coral)
+		self.plt.plot(self.time, self.coral, color="#ff6053")
 		self.canvas = FigureCanvasTkAgg(self.f, root)
 		self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")	
 		self.canvas.draw()
@@ -625,7 +625,8 @@ class Grapher(tk.Frame):
 
 			CSTf, CSTpsd_mt, CSTnu = tsa.multi_taper_psd(CST, Fs=1.0,adaptive=False, jackknife=False)
 			CSSf, CSSpsd_mt, CSSnu = tsa.multi_taper_psd(CSS, Fs=1.0,adaptive=False, jackknife=False)
-			self.Cd18Of, self.Cd18Opsd_mt, Cd18Onu = tsa.multi_taper_psd(Cd18O, Fs=1.0,adaptive=False, jackknife=False)
+			self.Cd18Of, self.Cd18Opsd_mt, Cd18Onu = tsa.multi_taper_psd(Cd18O, Fs=1.0,adaptive=False, 
+				jackknife=False)
 
 		# Get input error rate, if specified 
 		rateRaw = self.ageErrorEntry.get()
@@ -638,7 +639,8 @@ class Grapher(tk.Frame):
 		if (self.R1 != rate or self.newData == True):
 			self.R1 = rate
 			if self.Xp.size == 0: 
-				tp,self.Xp,tmc = banded.bam_simul_perturb(self.X,self.time,param=[rate,rate],name='poisson',ns=100,resize=0)
+				tp,self.Xp,tmc = banded.bam_simul_perturb(self.X,self.time,param=[rate,rate],
+					name='poisson',ns=100,resize=0)
 			Xpm = self.Xp - np.mean(self.Xp, axis=0)
 
 			# DO SAME CALCULATION IN LOOP FOR ALL AGE UNCERTAINTY VECTORS
@@ -646,7 +648,6 @@ class Grapher(tk.Frame):
 			Xpsd_mt=np.zeros((len(CSTf),len(Xpm[1])))
 			Xpnu=np.zeros((len(CSTf),len(Xpm[1])))
 
-			# Error here: ValueError: could not broadcast input array from shape (501) into shape (6007)
 			for i in range(len(Xpm[1])):
 				Xpf[:,i],Xpsd_mt[:,i],Xpnu[:,i]=tsa.multi_taper_psd(Xpm[:,i],Fs=1.0,adaptive=False, jackknife=False)
 			# Compute quantiles for spectra
@@ -675,9 +676,9 @@ class Grapher(tk.Frame):
 			xtick[i] = 1.0/pertick[i]
 		pertick_labels=(['500', '200', '100' ,'50', '20','10','8' ,'6','4', '2'])
 
+		self.ax.grid('on',axis='y',color='DimGray')
 		self.ax.set_xticks(xtick)
 		self.ax.set_xticklabels(pertick_labels)
-		self.ax.grid('on',axis='y',color='DimGray')
 		self.ax.set_xlim([1./550.,0.4])
 		self.ax.set_ylim([1e-3, 1e1])
 		self.ax.legend(loc=3,fontsize=11,frameon=False)
@@ -687,14 +688,13 @@ class Grapher(tk.Frame):
 		self.ax2=self.f.add_subplot(312)
 		self.ax2.spines["top"].set_visible(False)  
 		self.ax2.spines["right"].set_visible(False)  
-		self.ax2.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color='DarkOrange')
+		self.ax2.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
 		self.ax2.set_title(r'SENSOR', color='gray')
 		self.ax2.set_xlabel(r'Period (Years)')
 		self.ax2.set_ylabel(r'PSD')
 		self.ax2.tick_params(axis="both", which="both", bottom="on", top="off",  
 		                labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
 		self.ax2.minorticks_off()
-
 		self.ax2.grid('on',axis='y',color='DimGray')
 		self.ax2.set_xticks(xtick)
 		self.ax2.set_xticklabels(pertick_labels)
@@ -708,18 +708,18 @@ class Grapher(tk.Frame):
 		self.ax3.spines["top"].set_visible(False)  
 		self.ax3.spines["right"].set_visible(False)  
 		# Observation purturbed age ensemble here.
-		self.ax3.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations (4%), CI',facecolor='gray',alpha=0.5)
-		self.ax3.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color='DarkOrange')
+		self.ax3.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations (4%), CI',
+			facecolor='gray',alpha=0.5)
+		self.ax3.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
 		self.ax3.tick_params(axis="both", which="both", bottom="on", top="off",  
 		                labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
 		self.ax3.minorticks_off()
 		self.ax3.set_title(r'OBSERVATION', color='gray')
 		self.ax3.set_xlabel(r'Period (Years)')
 		self.ax3.set_ylabel(r'PSD')
-
+		self.ax3.grid('on',axis='y',color='DimGray')
 		self.ax3.set_xticks(xtick)
 		self.ax3.set_xticklabels(pertick_labels)
-		self.ax3.grid('on',axis='y',color='DimGray')
 		self.ax3.set_xlim([1./550.,0.4])
 		self.ax3.set_ylim([1e-3, 1])
 		self.ax3.legend(loc=3,fontsize=11,frameon=False)
