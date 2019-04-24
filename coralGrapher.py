@@ -1,3 +1,4 @@
+import os
 import psm.coral.sensor as sensor
 import psm.agemodels.banded as banded
 import psm.aux_functions.analytical_err_simple as analytical_err_simple
@@ -22,7 +23,7 @@ class Grapher(tk.Frame):
 	def __init__(self, parent, *args, **kwargs):
 		tk.Frame.__init__(self, parent, *args, **kwargs)
 		self.parent = parent
-		self.parent.title("Coral PRSYM Model")
+		self.parent.title("PRYSM: Coral PSM")
 
 		# Initialize empty arrays for data saving 
 		self.time = np.array([])
@@ -33,9 +34,9 @@ class Grapher(tk.Frame):
 		self.gaussq1 = np.array([])
 		self.simpleq1 = np.array([])
 		self.simpleq2 = np.array([])
-		self.example = False 		# keep track of example data 
+		self.prepSuccess = False	# keep track of successful data prep
 		self.PS = False				# keep track of what graph is displaying 
-		self.newData = False 		# did the user upload new data?
+		self.newData = True 		# did the user upload new data?
 		self.R1 = -10.0				
 		self.R2 = -10.0 				
 		self.R3 = -10.0 				
@@ -45,7 +46,7 @@ class Grapher(tk.Frame):
 		# =========================================================================================
 
 		# Title of Page 
-		label = tk.Label(root, text="Coral PRYSM Model", font=LARGE_FONT)
+		label = tk.Label(root, text="PRYSM: Coral PSM", font=LARGE_FONT)
 		label.grid(sticky="E")
 
 		rowIdx = 1
@@ -113,12 +114,6 @@ class Grapher(tk.Frame):
 		# BUTTONS 
 		# =========================================================================================
 
-		# Creates example graph (as seen in paper)
-		tk.Label(root, text = "Click to see an example graph:").grid(row=rowIdx, column=0, sticky="E")
-		exampleGraphButton = tk.Button(root, text="Example Graph", command=self.exampleGraph)
-		exampleGraphButton.grid(row=rowIdx, column=1, ipadx=20, ipady=3, sticky="W")
-		rowIdx+=1 
-
 		# Allows user to upload data. 
 		tk.Label(root, 
 			text="Upload a single CSV file with three columns \n and the headers \"TIME\", \"SST\", \"SSS\"."
@@ -157,10 +152,10 @@ class Grapher(tk.Frame):
 		# GRAPH
 		# =========================================================================================
 		PSGraphButton = tk.Button(root, text="Power Spectrum", command=self.generatePS)
-		PSGraphButton.grid(row=0, column=12, ipadx=20, ipady=3, sticky="S")
+		PSGraphButton.grid(row=0, column=9, ipadx=10, ipady=3, sticky="SE")
 
 		SensorGraphButton = tk.Button(root, text="Sensor", command=self.generateGraph)
-		SensorGraphButton.grid(row=0, column=13, ipadx=20, ipady=3, sticky="S")
+		SensorGraphButton.grid(row=0, column=11, ipadx=10, ipady=3, sticky="S")
 
 		self.f = Figure(figsize=(10,5), dpi=100)
 		self.plt = self.f.add_subplot(111)
@@ -173,35 +168,31 @@ class Grapher(tk.Frame):
 		# =========================================================================================
 		# SAVE OPTIONS 
 		# =========================================================================================	
-		saveRowIdx = 18
-		tk.Label(root, text = "Save sensor data as:").grid(row=saveRowIdx, column=6, sticky="E")
+		saveRowIdx = 19
+		tk.Label(root, text = "Save sensor data as:").grid(row=saveRowIdx, column=5, sticky="E")
 		dataTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtData)
-		dataTxtbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
-		dataNpybutton = tk.Button(root, text=".npy", command=self.saveNpyData)
-		dataNpybutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
+		dataTxtbutton.grid(row=saveRowIdx, column=7, ipadx=20, ipady=3, sticky="W")
 		dataCsvbutton = tk.Button(root, text=".csv", command=self.saveCsvData)
-		dataCsvbutton.grid(row=saveRowIdx, column=10, ipadx=20, ipady=3, sticky="W")
-		saveRowIdx += 1
+		dataCsvbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
 
-		tk.Label(root, text = "Save uncertainty data as:").grid(row=saveRowIdx, column=6, sticky="E")
+		tk.Label(root, text = "Save uncertainty data as:").grid(row=saveRowIdx, column=9, sticky="E")
 		errorTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtErrors)
-		errorTxtbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+		errorTxtbutton.grid(row=saveRowIdx, column=11, ipadx=20, ipady=3, sticky="W")
 		errorCsvbutton = tk.Button(root, text=".csv", command=self.saveCsvErrors)
-		errorCsvbutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
+		errorCsvbutton.grid(row=saveRowIdx, column=12, ipadx=20, ipady=3, sticky="W")
 		saveRowIdx += 1
 
-		tk.Label(root, text = "Save power spectrum data as:").grid(row=saveRowIdx, column=6, sticky="E")
+		tk.Label(root, text = "Save power spectrum data as:").grid(row=saveRowIdx, column=5, sticky="E")
 		errorTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtPSData)
-		errorTxtbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+		errorTxtbutton.grid(row=saveRowIdx, column=7, ipadx=20, ipady=3, sticky="W")
 		errorCsvbutton = tk.Button(root, text=".csv", command=self.saveCsvPSData)
-		errorCsvbutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
-		saveRowIdx += 1
+		errorCsvbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
 
-		tk.Label(root, text = "Save graph as:").grid(row=saveRowIdx, column=6, sticky="E")
+		tk.Label(root, text = "Save graph as:").grid(row=saveRowIdx, column=9, sticky="E")
 		graphPNGbutton = tk.Button(root, text=".png", command=self.savePngGraph)
-		graphPNGbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+		graphPNGbutton.grid(row=saveRowIdx, column=11, ipadx=20, ipady=3, sticky="W")
 		graphPDFbutton = tk.Button(root, text=".pdf", command=self.savePdfGraph)
-		graphPDFbutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
+		graphPDFbutton.grid(row=saveRowIdx, column=12, ipadx=20, ipady=3, sticky="W")
 		saveRowIdx += 1
 
 	"""
@@ -251,14 +242,6 @@ class Grapher(tk.Frame):
 			self.f.savefig(file)
 			tk.messagebox.showinfo("Sucess", "Saved graph")
 
-	"""
-	Saves sensor data into a numpy file. 
-	"""
-	def saveNpyData(self):
-		file = filedialog.asksaveasfilename(initialfile="SensorData.npy", defaultextension=".npy")
-		if file:
-			np.save(file, self.coral)
-			tk.messagebox.showinfo("Sucess", "Saved simulated data")
 
 	"""
 	Saves sensor data into a text file. 
@@ -324,110 +307,6 @@ class Grapher(tk.Frame):
 				tk.messagebox.showinfo("Sucess", 
 					"Saved simple analytical error data where Q1 is the first row and Q2 is the second row.")
 
-	"""
-	Creates example graph as seen in paper. 
-	"""
-	def exampleGraph(self): 
-		# clear whatever is currently on the canvas 
-		self.plt.clear()
-		# set newData to true because we are changing the data 
-		self.newData = True 
-		# set example to true so user will only see example graphs 
-		self.example = True 
-		# Time values 
-		self.time = np.arange(850,1850,1)
-		# Get y-values from driver script 
-		self.coral = np.load('coral/simulated_coral_d18O.npy')
-		self.SST = np.load('coral/test_data_coral/Palmyra_SST_Anomalies_Yearly_850-1850.npy')
-		self.SSS = np.load('coral/test_data_coral/Palmyra_SSS_Anomalies_Yearly_850-1850.npy')
-
-		# Reshape coral data for uncertainty calculations 
-		self.X = self.coral
-		self.X = self.X.reshape(len(self.X),1)
-
-		# Plot age uncertainties - if selected 
-		if (self.ageErrorVal.get()):
-			# Get input error rate
-			rateRaw = self.ageErrorEntry.get()
-			if rateRaw == "":
-				tk.messagebox.showerror("Error", "Invalid Rate Value")
-				return
-			# if first time selecting rate, remember 
-			if (self.R1 == -10):
-				rate = float(rateRaw)
-				self.R1 = rate 				
-			# if rate changed or new data, recalculate 
-			if (self.R1 != float(rateRaw) or self.newData == True):
-				rate = float(rateRaw)
-				self.R1 = rate 
-				# Calculate the age uncertanties
-				tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
-				self.ageq1=mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
-				q2=self.time
-				# Graph quantiles 
-				self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
-					label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
-
-		# Plot simple analytical errors - if selected
-		if (self.simAltErrorVal.get()):
-			# Get input error rate
-			sigmaRaw = self.simAltErrorEntry.get()
-			if sigmaRaw == "":
-				tk.messagebox.showerror("Error", "Invalid Rate Value")
-				return
-			# if first time selecting rate, remember 
-			if (self.R2 == -10):
-				sigma = float(sigmaRaw)
-				self.R2 = sigma 				
-			# if rate changed or new data, recalculate 
-			if (self.R2 != float(sigmaRaw) or self.newData == True):
-				sigma = float(sigmaRaw)
-				self.R2 = sigma 
-				self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
-				# Reshape quanties for graphing
-				self.simpleq1 = self.simpleq1.reshape(len(self.time))
-				self.simpleq2 = self.simpleq2.reshape(len(self.time))
-				# Graph quantiles 
-				self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
-					label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
-
-		# Plot gaussian analytical errors - if selected
-		if (self.altErrorVal.get()):
-			# Get input error rate
-			sigmaRaw = self.altErrorEntry.get()
-			if sigmaRaw == "":
-				tk.messagebox.showerror("Error", "Invalid Rate Value")
-				return
-			# if first time selecting rate, remember 
-			if (self.R3 == -10):
-				sigma = float(sigmaRaw)
-				self.R3 = sigma 				
-			# if rate changed or new data, recalculate 
-			if (self.R3 != float(sigmaRaw) or self.newData == True):
-				sigma = float(sigmaRaw)
-				self.R3 = sigma 
-				Xn = analytical_error.analytical_error(self.X, sigma, nsamples=100)
-				Xn = Xn[:,0,:].reshape(len(self.X), 100) 
-				self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
-				q2=self.time
-				self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
-					label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
-
-		# Plot the graph
-		if (self.PS == True):
-			self.ax.remove()
-			self.ax2.remove()
-			self.ax3.remove()
-			self.plt = self.f.add_subplot(111)
-			self.canvas = FigureCanvasTkAgg(self.f, root)
-			self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")	
-			self.PS = False 
-
-		self.plt.set_title(r'SENSOR')
-		self.plt.set_xlabel('Time')
-		self.plt.set_ylabel('Simulated Coral Data')		
-		self.plt.plot(self.time, self.coral, color="#ff6053")
-		self.canvas.draw()
 
 	"""
 	Takes a CSV file and saves the Time, SSS, and SST values. 
@@ -454,11 +333,12 @@ class Grapher(tk.Frame):
 		# Make sure user has uploaded data 
 		if (self.time.size == 0 or self.SST.size == 0 or self.SSS.size == 0):
 			tk.messagebox.showerror("Error", "Missing input data")
+			self.prepSuccess = False
 			return
 
 		# Data has not changed, just return 
 		if (self.newData == False): 
-			return 
+			return
 
 		# Clear whatever is currently on the canvas 
 		self.plt.clear()
@@ -475,6 +355,7 @@ class Grapher(tk.Frame):
 			# Longitude must be in the range [0, 360]
 			if (lon > 360):
 				tk.messagebox.showerror("Error", "Invalid Longitude Value")
+				self.prepSuccess = False
 				return
 
 		# Get the latitude value. 
@@ -486,6 +367,7 @@ class Grapher(tk.Frame):
 			# Latitude must be in the range [-90, 90] 
 			if (lat < -90):
 				tk.messagebox.showerror("Error", "Invalid Latitude Value")
+				self.prepSuccess = False
 				return
 
 		# Ensure that Sea-Surface Temperature is in degrees C, not Kelvin.
@@ -502,6 +384,7 @@ class Grapher(tk.Frame):
 		# Reshape coral data for uncertainty calculations 
 		self.X = self.coral
 		self.X = self.X.reshape(len(self.X),1)
+		self.prepSuccess = True
 
 	"""
 	Generates coral data based on input data and model, and graphs result.
@@ -509,8 +392,12 @@ class Grapher(tk.Frame):
 	def generateGraph(self): 
 
 		# user uploads new data or switches from example to non 
-		if (self.newData == True or self.example == False):
+		if (self.newData == True):
 			self.dataPrep()
+
+		# if data prep was unsucessful, do not try to generate graph.
+		if (self.prepSuccess == False): 
+			return 
 
 		# change from 3 subplots to 1 
 		if (self.PS == True): 
@@ -600,18 +487,21 @@ class Grapher(tk.Frame):
 		self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")	
 		self.canvas.draw()
 
+
 	"""
 	Generates power spectrum of coral model. 
 	"""
 	def generatePS(self):
 
-		if (self.example == False):
-			self.dataPrep()
+		self.dataPrep()
 
-		if (self.example == True): 
-			# Reshape coral data for uncertainty calculations 
-			self.X = self.coral
-			self.X = self.X.reshape(len(self.X),1)
+		# if data prep was unsucessful, do not try to generate graph.
+		if (self.prepSuccess == False): 
+			return
+
+		# Reshape coral data for uncertainty calculations 
+		self.X = self.coral
+		self.X = self.X.reshape(len(self.X),1)
 
 		# clear whatever is currently on the canvas 
 		self.plt.clear()
@@ -729,6 +619,7 @@ class Grapher(tk.Frame):
 		self.f.subplots_adjust(hspace=.95)
 		self.canvas = FigureCanvasTkAgg(self.f, root)
 		self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=20, columnspan=15, sticky="nw")
+
 
 	"""
 	Clears all content in the graph. 
