@@ -1,14 +1,15 @@
+from os.path import basename
 import psm.coral.sensor as sensor
 import psm.agemodels.banded as banded
 import psm.aux_functions.analytical_err_simple as analytical_err_simple
 import psm.aux_functions.analytical_error as analytical_error
 
 import tkinter as tk 	
-from tkinter import ttk, filedialog
+from tkinter.filedialog import asksaveasfilename, askopenfilename
 import numpy as np
 from scipy.stats.mstats import mquantiles
 import nitime.algorithms as tsa
-import pandas as pd
+from pandas import DataFrame
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -22,7 +23,7 @@ class Grapher(tk.Frame):
 	def __init__(self, parent, *args, **kwargs):
 		tk.Frame.__init__(self, parent, *args, **kwargs)
 		self.parent = parent
-		self.parent.title("Coral PRSYM Model")
+		self.parent.title("PRYSM: Coral PSM")
 
 		# Initialize empty arrays for data saving 
 		self.time = np.array([])
@@ -33,19 +34,23 @@ class Grapher(tk.Frame):
 		self.gaussq1 = np.array([])
 		self.simpleq1 = np.array([])
 		self.simpleq2 = np.array([])
-		self.example = False 		# keep track of example data 
+		self.prepSuccess = False	# keep track of successful data prep
 		self.PS = False				# keep track of what graph is displaying 
-		self.newData = False 		# did the user upload new data?
+		self.newSensorData = True 	# do we need to calculate new sensor data?
+		self.newPSData = True 		# do we need to calculate new PS data?
 		self.R1 = -10.0				
 		self.R2 = -10.0 				
-		self.R3 = -10.0 				
+		self.R3 = -10.0 
+		self.lon = -10 
+		self.lat = -10			
+		self.species = "default"	
 
 		# =========================================================================================
 		# SENSOR DATA 
 		# =========================================================================================
 
 		# Title of Page 
-		label = tk.Label(root, text="Coral PRYSM Model", font=LARGE_FONT)
+		label = tk.Label(root, text="PRYSM: Coral PSM", font=LARGE_FONT)
 		label.grid(sticky="E")
 
 		rowIdx = 1
@@ -113,12 +118,6 @@ class Grapher(tk.Frame):
 		# BUTTONS 
 		# =========================================================================================
 
-		# Creates example graph (as seen in paper)
-		tk.Label(root, text = "Click to see an example graph:").grid(row=rowIdx, column=0, sticky="E")
-		exampleGraphButton = tk.Button(root, text="Example Graph", command=self.exampleGraph)
-		exampleGraphButton.grid(row=rowIdx, column=1, ipadx=20, ipady=3, sticky="W")
-		rowIdx+=1 
-
 		# Allows user to upload data. 
 		tk.Label(root, 
 			text="Upload a single CSV file with three columns \n and the headers \"TIME\", \"SST\", \"SSS\"."
@@ -157,10 +156,10 @@ class Grapher(tk.Frame):
 		# GRAPH
 		# =========================================================================================
 		PSGraphButton = tk.Button(root, text="Power Spectrum", command=self.generatePS)
-		PSGraphButton.grid(row=0, column=12, ipadx=20, ipady=3, sticky="S")
+		PSGraphButton.grid(row=0, column=9, ipadx=10, ipady=3, sticky="SE")
 
 		SensorGraphButton = tk.Button(root, text="Sensor", command=self.generateGraph)
-		SensorGraphButton.grid(row=0, column=13, ipadx=20, ipady=3, sticky="S")
+		SensorGraphButton.grid(row=0, column=11, ipadx=10, ipady=3, sticky="S")
 
 		self.f = Figure(figsize=(10,5), dpi=100)
 		self.plt = self.f.add_subplot(111)
@@ -173,35 +172,31 @@ class Grapher(tk.Frame):
 		# =========================================================================================
 		# SAVE OPTIONS 
 		# =========================================================================================	
-		saveRowIdx = 18
-		tk.Label(root, text = "Save sensor data as:").grid(row=saveRowIdx, column=6, sticky="E")
+		saveRowIdx = 19
+		tk.Label(root, text = "Save sensor data as:").grid(row=saveRowIdx, column=5, sticky="E")
 		dataTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtData)
-		dataTxtbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
-		dataNpybutton = tk.Button(root, text=".npy", command=self.saveNpyData)
-		dataNpybutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
+		dataTxtbutton.grid(row=saveRowIdx, column=7, ipadx=20, ipady=3, sticky="W")
 		dataCsvbutton = tk.Button(root, text=".csv", command=self.saveCsvData)
-		dataCsvbutton.grid(row=saveRowIdx, column=10, ipadx=20, ipady=3, sticky="W")
-		saveRowIdx += 1
+		dataCsvbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
 
-		tk.Label(root, text = "Save uncertainty data as:").grid(row=saveRowIdx, column=6, sticky="E")
+		tk.Label(root, text = "Save uncertainty data as:").grid(row=saveRowIdx, column=9, sticky="E")
 		errorTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtErrors)
-		errorTxtbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+		errorTxtbutton.grid(row=saveRowIdx, column=11, ipadx=20, ipady=3, sticky="W")
 		errorCsvbutton = tk.Button(root, text=".csv", command=self.saveCsvErrors)
-		errorCsvbutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
+		errorCsvbutton.grid(row=saveRowIdx, column=12, ipadx=20, ipady=3, sticky="W")
 		saveRowIdx += 1
 
-		tk.Label(root, text = "Save power spectrum data as:").grid(row=saveRowIdx, column=6, sticky="E")
+		tk.Label(root, text = "Save power spectrum data as:").grid(row=saveRowIdx, column=5, sticky="E")
 		errorTxtbutton = tk.Button(root, text=".txt", command=self.saveTxtPSData)
-		errorTxtbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+		errorTxtbutton.grid(row=saveRowIdx, column=7, ipadx=20, ipady=3, sticky="W")
 		errorCsvbutton = tk.Button(root, text=".csv", command=self.saveCsvPSData)
-		errorCsvbutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
-		saveRowIdx += 1
+		errorCsvbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
 
-		tk.Label(root, text = "Save graph as:").grid(row=saveRowIdx, column=6, sticky="E")
+		tk.Label(root, text = "Save graph as:").grid(row=saveRowIdx, column=9, sticky="E")
 		graphPNGbutton = tk.Button(root, text=".png", command=self.savePngGraph)
-		graphPNGbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+		graphPNGbutton.grid(row=saveRowIdx, column=11, ipadx=20, ipady=3, sticky="W")
 		graphPDFbutton = tk.Button(root, text=".pdf", command=self.savePdfGraph)
-		graphPDFbutton.grid(row=saveRowIdx, column=9, ipadx=20, ipady=3, sticky="W")
+		graphPDFbutton.grid(row=saveRowIdx, column=12, ipadx=20, ipady=3, sticky="W")
 		saveRowIdx += 1
 
 	"""
@@ -209,12 +204,12 @@ class Grapher(tk.Frame):
 	"""
 	def saveTxtPSData(self): 
 		if (self.Cd18Of.size != 0):
-			file1 = filedialog.asksaveasfilename(initialfile="Cd180f", defaultextension=".txt")
+			file1 = asksaveasfilename(initialfile="Cd180f", defaultextension=".txt")
 			if file1:
 				np.savetxt(file1, self.Cd18Of, newline=" ")
 				tk.messagebox.showinfo("Sucess", "Saved power spectrum frequency data")
 		if (self.Cd18Opsd_mt.size != 0):
-			file2 = filedialog.asksaveasfilename(initialfile="Cd18Opsd_mt", defaultextension=".txt")
+			file2 = asksaveasfilename(initialfile="Cd18Opsd_mt", defaultextension=".txt")
 			if file2:
 				np.savetxt(file2, self.Cd18Opsd_mt, newline=" ")
 				tk.messagebox.showinfo("Sucess", "Saved power spectral density data")
@@ -223,12 +218,12 @@ class Grapher(tk.Frame):
 	Saves power spectrum data as csv file. 
 	"""
 	def saveCsvPSData(self): 
-		df = pd.DataFrame({})
+		df = DataFrame({})
 		if (self.Cd18Of.size != 0):
 			df["Cd180f"] = self.Cd18Of
 		if (self.Cd18Opsd_mt.size != 0):
 			df["Cd18Opsd_mt"] = self.Cd18Opsd_mt
-		file = filedialog.asksaveasfilename(initialfile="PowerSpectrumData.csv", defaultextension=".csv")
+		file = asksaveasfilename(initialfile="PowerSpectrumData.csv", defaultextension=".csv")
 		if file:
 			df.to_csv(file, index=False)
 			tk.messagebox.showinfo("Sucess", "Saved power spectrum data")
@@ -237,7 +232,7 @@ class Grapher(tk.Frame):
 	Saves current graph as pdf.
 	"""
 	def savePdfGraph(self):
-		file = filedialog.asksaveasfilename(initialfile="Figure.pdf", defaultextension=".pdf")
+		file = asksaveasfilename(initialfile="Figure.pdf", defaultextension=".pdf")
 		if file:
 			self.f.savefig(file)
 			tk.messagebox.showinfo("Sucess", "Saved graph")
@@ -246,25 +241,17 @@ class Grapher(tk.Frame):
 	Saves current graph as png.
 	"""
 	def savePngGraph(self):
-		file = filedialog.asksaveasfilename(initialfile="Figure.png", defaultextension=".png")
+		file = asksaveasfilename(initialfile="Figure.png", defaultextension=".png")
 		if file:
 			self.f.savefig(file)
 			tk.messagebox.showinfo("Sucess", "Saved graph")
 
-	"""
-	Saves sensor data into a numpy file. 
-	"""
-	def saveNpyData(self):
-		file = filedialog.asksaveasfilename(initialfile="SensorData.npy", defaultextension=".npy")
-		if file:
-			np.save(file, self.coral)
-			tk.messagebox.showinfo("Sucess", "Saved simulated data")
 
 	"""
 	Saves sensor data into a text file. 
 	"""
 	def saveTxtData(self):
-		file = filedialog.asksaveasfilename(initialfile="SensorData.txt", defaultextension=".txt")
+		file = asksaveasfilename(initialfile="SensorData.txt", defaultextension=".txt")
 		if file:
 			np.savetxt(file, self.coral, newline=" ")
 			tk.messagebox.showinfo("Sucess", "Saved simulated data")
@@ -273,8 +260,8 @@ class Grapher(tk.Frame):
 	Saves sensor data into a csv file. 
 	"""
 	def saveCsvData(self):
-		df = pd.DataFrame({"Sensor": self.coral})
-		file = filedialog.asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
+		df = DataFrame({"Sensor": self.coral})
+		file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
 		if file:
 			df.to_csv(file, index=False)
 			tk.messagebox.showinfo("Sucess", "Saved uncertainty data")
@@ -283,7 +270,7 @@ class Grapher(tk.Frame):
 	Saves error data into a text file. 
 	"""
 	def saveCsvErrors(self):
-		df = pd.DataFrame({})
+		df = DataFrame({})
 		if (self.ageq1.size != 0):
 			df["Age_Q1"] = self.ageq1[:,0]
 			df["Age_Q2"] = self.ageq1[:,1]
@@ -296,7 +283,7 @@ class Grapher(tk.Frame):
 			df["SimpleAnalytical_Q1"] = self.simpleq1
 			df["SimpleAnalytical_Q2"] = self.simpleq2
 			
-		file = filedialog.asksaveasfilename(initialfile="uncertainties.csv", defaultextension=".csv")
+		file = asksaveasfilename(initialfile="uncertainties.csv", defaultextension=".csv")
 		if file:
 			df.to_csv(file, index=False)
 			tk.messagebox.showinfo("Sucess", "Saved uncertainty data")
@@ -306,142 +293,37 @@ class Grapher(tk.Frame):
 	"""
 	def saveTxtErrors(self):	
 		if (self.ageq1.size != 0):
-			file1 = filedialog.asksaveasfilename(initialfile="age_uncertainties", defaultextension=".txt")
+			file1 = asksaveasfilename(initialfile="age_uncertainties", defaultextension=".txt")
 			if file1:
 				np.savetxt(file1, (self.ageq1[:,0], self.ageq1[:,1]), newline=" ")
 				tk.messagebox.showinfo("Sucess", 
 					"Saved age error data where Q1 is the first row and Q2 is the second row.")
 		if (self.gaussq1.size != 0):
-			file2 = filedialog.asksaveasfilename(initialfile="gaussian_analytical_uncertainties", defaultextension=".txt")
+			file2 = asksaveasfilename(initialfile="gaussian_analytical_uncertainties", defaultextension=".txt")
 			if file2:			
 				np.savetxt(file2, (self.gaussq1[:,0], self.gaussq1[:,1]), newline=" ")
 				tk.messagebox.showinfo("Sucess", 
 					"Saved gaussian analytical error data where Q1 is the first row and Q2 is the second row.")
 		if (self.simpleq1.size != 0 and self.simpleq2.size != 0):
-			file3 = filedialog.asksaveasfilename(initialfile="simple_analytical_uncertainties", defaultextension=".txt")
+			file3 = asksaveasfilename(initialfile="simple_analytical_uncertainties", defaultextension=".txt")
 			if file3:	
 				np.savetxt(file3, (self.simpleq1, self.simpleq2), newline=" ")
 				tk.messagebox.showinfo("Sucess", 
 					"Saved simple analytical error data where Q1 is the first row and Q2 is the second row.")
 
-	"""
-	Creates example graph as seen in paper. 
-	"""
-	def exampleGraph(self): 
-		# clear whatever is currently on the canvas 
-		self.plt.clear()
-		# set newData to true because we are changing the data 
-		self.newData = True 
-		# set example to true so user will only see example graphs 
-		self.example = True 
-		# Time values 
-		self.time = np.arange(850,1850,1)
-		# Get y-values from driver script 
-		self.coral = np.load('coral/simulated_coral_d18O.npy')
-		self.SST = np.load('coral/test_data_coral/Palmyra_SST_Anomalies_Yearly_850-1850.npy')
-		self.SSS = np.load('coral/test_data_coral/Palmyra_SSS_Anomalies_Yearly_850-1850.npy')
-
-		# Reshape coral data for uncertainty calculations 
-		self.X = self.coral
-		self.X = self.X.reshape(len(self.X),1)
-
-		# Plot age uncertainties - if selected 
-		if (self.ageErrorVal.get()):
-			# Get input error rate
-			rateRaw = self.ageErrorEntry.get()
-			if rateRaw == "":
-				tk.messagebox.showerror("Error", "Invalid Rate Value")
-				return
-			# if first time selecting rate, remember 
-			if (self.R1 == -10):
-				rate = float(rateRaw)
-				self.R1 = rate 				
-			# if rate changed or new data, recalculate 
-			if (self.R1 != float(rateRaw) or self.newData == True):
-				rate = float(rateRaw)
-				self.R1 = rate 
-				# Calculate the age uncertanties
-				tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
-				self.ageq1=mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
-				q2=self.time
-				# Graph quantiles 
-				self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
-					label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
-
-		# Plot simple analytical errors - if selected
-		if (self.simAltErrorVal.get()):
-			# Get input error rate
-			sigmaRaw = self.simAltErrorEntry.get()
-			if sigmaRaw == "":
-				tk.messagebox.showerror("Error", "Invalid Rate Value")
-				return
-			# if first time selecting rate, remember 
-			if (self.R2 == -10):
-				sigma = float(sigmaRaw)
-				self.R2 = sigma 				
-			# if rate changed or new data, recalculate 
-			if (self.R2 != float(sigmaRaw) or self.newData == True):
-				sigma = float(sigmaRaw)
-				self.R2 = sigma 
-				self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
-				# Reshape quanties for graphing
-				self.simpleq1 = self.simpleq1.reshape(len(self.time))
-				self.simpleq2 = self.simpleq2.reshape(len(self.time))
-				# Graph quantiles 
-				self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
-					label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
-
-		# Plot gaussian analytical errors - if selected
-		if (self.altErrorVal.get()):
-			# Get input error rate
-			sigmaRaw = self.altErrorEntry.get()
-			if sigmaRaw == "":
-				tk.messagebox.showerror("Error", "Invalid Rate Value")
-				return
-			# if first time selecting rate, remember 
-			if (self.R3 == -10):
-				sigma = float(sigmaRaw)
-				self.R3 = sigma 				
-			# if rate changed or new data, recalculate 
-			if (self.R3 != float(sigmaRaw) or self.newData == True):
-				sigma = float(sigmaRaw)
-				self.R3 = sigma 
-				Xn = analytical_error.analytical_error(self.X, sigma, nsamples=100)
-				Xn = Xn[:,0,:].reshape(len(self.X), 100) 
-				self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
-				q2=self.time
-				self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
-					label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
-
-		# Plot the graph
-		if (self.PS == True):
-			self.ax.remove()
-			self.ax2.remove()
-			self.ax3.remove()
-			self.plt = self.f.add_subplot(111)
-			self.canvas = FigureCanvasTkAgg(self.f, root)
-			self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")	
-			self.PS = False 
-
-		self.plt.set_title(r'SENSOR')
-		self.plt.set_xlabel('Time')
-		self.plt.set_ylabel('Simulated Coral Data')		
-		self.plt.plot(self.time, self.coral, color="#ff6053")
-		self.canvas.draw()
 
 	"""
 	Takes a CSV file and saves the Time, SSS, and SST values. 
 	"""
 	def uploadData(self):
 		# Open the file choosen by the user 
-		filename = filedialog.askopenfilename(filetypes = (("csv files","*.csv"),))
+		filename = askopenfilename(filetypes = (("csv files","*.csv"),))
 		data = np.genfromtxt(filename, delimiter = ",", names=True, dtype=None)
-		self.currentFileLabel.configure(text=os.path.basename(filename))
+		self.currentFileLabel.configure(text=basename(filename))
 		# Get the entry fields.  
 		self.time=data['TIME']
 		self.SST=data['SST']
-		self.SSS=data['SSS']
-		self.newData = True	
+		self.SSS=data['SSS']	
 		if (self.time.shape != self.SST.shape or self.SST.shape != self.SSS.shape or self.time.shape != self.SSS.shape):
 			tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")	
 			return
@@ -454,11 +336,8 @@ class Grapher(tk.Frame):
 		# Make sure user has uploaded data 
 		if (self.time.size == 0 or self.SST.size == 0 or self.SSS.size == 0):
 			tk.messagebox.showerror("Error", "Missing input data")
+			self.prepSuccess = False
 			return
-
-		# Data has not changed, just return 
-		if (self.newData == False): 
-			return 
 
 		# Clear whatever is currently on the canvas 
 		self.plt.clear()
@@ -469,48 +348,59 @@ class Grapher(tk.Frame):
         # Get the longitude value. 
 		lonEntryRaw = self.lonEntry.get()
 		if lonEntryRaw == "":
-			lon = 197.92
+			newLon = 197.92
 		else:
-			lon = float(lonEntryRaw)
+			newLon = float(lonEntryRaw)
 			# Longitude must be in the range [0, 360]
-			if (lon > 360):
+			if (newLon > 360):
 				tk.messagebox.showerror("Error", "Invalid Longitude Value")
+				self.prepSuccess = False
 				return
 
 		# Get the latitude value. 
 		latEntryRaw = self.latEntry.get()
 		if latEntryRaw == "": 
-			lat = 5.8833
+			newLat = 5.8833
 		else:
-			lat = float(latEntryRaw)
+			newLat = float(latEntryRaw)
 			# Latitude must be in the range [-90, 90] 
-			if (lat < -90):
+			if (newLat < -90):
 				tk.messagebox.showerror("Error", "Invalid Latitude Value")
+				self.prepSuccess = False
 				return
 
-		# Ensure that Sea-Surface Temperature is in degrees C, not Kelvin.
-		temp_flag = any(self.SST>200)
-		if (temp_flag):
-			for i in range(len(self.SST)):
-				self.SST[i] = self.SST[i]-274.15
-
-		# Fill coral array with data same size as input vectors.
-		self.coral = np.zeros(len(self.time))
-		for i in range(len(self.time)):
-			self.coral[i] = sensor.pseudocoral(lat,lon,self.SST[i],self.SSS[i],species=speciesInput)
+		# If latitude, longitude, and species are different, then calculate the new data 
+		if (self.lon != newLon or self.lat != newLat or self.species != speciesInput): 
+			self.newSensorData = False
+			self.newPSData = True
+			self.lon = newLon 
+			self.lat = newLat 
+			self.species = speciesInput
+			# Ensure that Sea-Surface Temperature is in degrees C, not Kelvin.
+			temp_flag = any(self.SST>200)
+			if (temp_flag):
+				for i in range(len(self.SST)):
+					self.SST[i] = self.SST[i]-274.15
+			# Fill coral array with data same size as input vectors.
+			self.coral = np.zeros(len(self.time))
+			for i in range(len(self.time)):
+				self.coral[i] = sensor.pseudocoral(self.lat,self.lon,self.SST[i],self.SSS[i],species=self.species)
 
 		# Reshape coral data for uncertainty calculations 
 		self.X = self.coral
 		self.X = self.X.reshape(len(self.X),1)
+		self.prepSuccess = True
 
 	"""
 	Generates coral data based on input data and model, and graphs result.
 	"""
 	def generateGraph(self): 
 
-		# user uploads new data or switches from example to non 
-		if (self.newData == True or self.example == False):
-			self.dataPrep()
+		self.dataPrep()
+
+		# if data prep was unsucessful, do not try to generate graph.
+		if (self.prepSuccess == False): 
+			return 
 
 		# change from 3 subplots to 1 
 		if (self.PS == True): 
@@ -531,7 +421,7 @@ class Grapher(tk.Frame):
 				rate = float(rateRaw)
 				self.R1 = rate 				
 			# if rate changed or new data, recalculate 
-			if (self.R1 != float(rateRaw) or self.newData == True):
+			if (self.R1 != float(rateRaw) or self.newSensorData == True):
 				rate = float(rateRaw)
 				self.R1 = rate 
 				# Calculate the age uncertanties
@@ -554,7 +444,7 @@ class Grapher(tk.Frame):
 				sigma = float(sigmaRaw)
 				self.R2 = sigma 				
 			# if rate changed or new data, recalculate 
-			if (self.R2 != float(sigmaRaw) or self.newData == True):
+			if (self.R2 != float(sigmaRaw) or self.newSensorData == True):
 				sigma = float(sigmaRaw)
 				self.R2 = sigma 
 				self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
@@ -577,7 +467,7 @@ class Grapher(tk.Frame):
 				sigma = float(sigmaRaw)
 				self.R3 = sigma 				
 			# if rate changed or new data, recalculate 
-			if (self.R3 != float(sigmaRaw) or self.newData == True):
+			if (self.R3 != float(sigmaRaw) or self.newSensorData == True):
 				sigma = float(sigmaRaw)
 				self.R3 = sigma 
 				inputs = len(self.X)
@@ -600,32 +490,32 @@ class Grapher(tk.Frame):
 		self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")	
 		self.canvas.draw()
 
+
 	"""
 	Generates power spectrum of coral model. 
 	"""
 	def generatePS(self):
 
-		if (self.example == False):
-			self.dataPrep()
+		self.dataPrep()
 
-		if (self.example == True): 
-			# Reshape coral data for uncertainty calculations 
-			self.X = self.coral
-			self.X = self.X.reshape(len(self.X),1)
+		# if data prep was unsucessful, do not try to generate graph.
+		if (self.prepSuccess == False): 
+			return
 
 		# clear whatever is currently on the canvas 
 		self.plt.clear()
 		self.f.clear()
 		self.PS = True 
 
-		if (self.newData == True):
-			CST = self.SST - np.mean(self.SST)
-			CSS = self.SSS - np.mean(self.SSS)
-			Cd18O = self.coral - np.mean(self.coral)
+		# Only calculate if user uploads new data 
+		if (self.newPSData == True):
+			self.CST = self.SST - np.mean(self.SST)
+			self.CSS = self.SSS - np.mean(self.SSS)
+			self.Cd18O = self.coral - np.mean(self.coral)
 
-			CSTf, CSTpsd_mt, CSTnu = tsa.multi_taper_psd(CST, Fs=1.0,adaptive=False, jackknife=False)
-			CSSf, CSSpsd_mt, CSSnu = tsa.multi_taper_psd(CSS, Fs=1.0,adaptive=False, jackknife=False)
-			self.Cd18Of, self.Cd18Opsd_mt, Cd18Onu = tsa.multi_taper_psd(Cd18O, Fs=1.0,adaptive=False, 
+			self.CSTf, self.CSTpsd_mt, self.CSTnu = tsa.multi_taper_psd(self.CST, Fs=1.0,adaptive=False, jackknife=False)
+			self.CSSf, self.CSSpsd_mt, self.CSSnu = tsa.multi_taper_psd(self.CSS, Fs=1.0,adaptive=False, jackknife=False)
+			self.Cd18Of, self.Cd18Opsd_mt, Cd18Onu = tsa.multi_taper_psd(self.Cd18O, Fs=1.0,adaptive=False, 
 				jackknife=False)
 
 		# Get input error rate, if specified 
@@ -636,32 +526,32 @@ class Grapher(tk.Frame):
 			rate = float(rateRaw)
 
 		# if rate hasn't changed and already calculated, no need to recalculate 
-		if (self.R1 != rate or self.newData == True):
+		if (self.R1 != rate or self.newPSData == True):
+			self.newPSData = False
 			self.R1 = rate
 			if self.Xp.size == 0: 
-				tp,self.Xp,tmc = banded.bam_simul_perturb(self.X,self.time,param=[rate,rate],
-					name='poisson',ns=100,resize=0)
-			Xpm = self.Xp - np.mean(self.Xp, axis=0)
-
+				self.tp, self.Xp, self.tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate,rate],
+					name='poisson', ns=100, resize=0)
+			self.Xpm = self.Xp - np.mean(self.Xp, axis=0)
 			# DO SAME CALCULATION IN LOOP FOR ALL AGE UNCERTAINTY VECTORS
-			Xpf=np.zeros((len(CSTf),len(Xpm[1])))
-			Xpsd_mt=np.zeros((len(CSTf),len(Xpm[1])))
-			Xpnu=np.zeros((len(CSTf),len(Xpm[1])))
-
-			for i in range(len(Xpm[1])):
-				Xpf[:,i],Xpsd_mt[:,i],Xpnu[:,i]=tsa.multi_taper_psd(Xpm[:,i],Fs=1.0,adaptive=False, jackknife=False)
+			self.Xpf=np.zeros((len(self.CSTf), len(self.Xpm[1])))
+			self.Xpsd_mt=np.zeros((len(self.CSTf), len(self.Xpm[1])))
+			self.Xpnu=np.zeros((len(self.CSTf), len(self.Xpm[1])))
+			for i in range(len(self.Xpm[1])):
+				self.Xpf[:,i], self.Xpsd_mt[:,i], self.Xpnu[:,i] = tsa.multi_taper_psd(self.Xpm[:,i], Fs=1.0, 
+					adaptive=False, jackknife=False)
 			# Compute quantiles for spectra
-			q1=mquantiles(Xpsd_mt,prob=[0.025,0.975],axis=1)
+			self.q1=mquantiles(self.Xpsd_mt,prob=[0.025,0.975],axis=1)
 			# x axis for quantile of spectra:
-			q2=Xpf[:,0]			
+			self.q2=self.Xpf[:,0]		
 
 		# =========================================================================================
 		
 		self.ax=self.f.add_subplot(311)
 		self.ax.spines["top"].set_visible(False)  
 		self.ax.spines["right"].set_visible(False) 
-		self.ax.loglog(CSTf,CSTpsd_mt, label='SST',color='red')
-		self.ax.loglog(CSSf,CSSpsd_mt, label='SSS (PSU)',color='LightSeaGreen')
+		self.ax.loglog(self.CSTf, self.CSTpsd_mt, label='SST',color='red')
+		self.ax.loglog(self.CSSf, self.CSSpsd_mt, label='SSS (PSU)',color='LightSeaGreen')
 		self.ax.tick_params(axis="both", which="both", bottom="on", top="off",  
 		                labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
 		self.ax.minorticks_off()
@@ -688,7 +578,7 @@ class Grapher(tk.Frame):
 		self.ax2=self.f.add_subplot(312)
 		self.ax2.spines["top"].set_visible(False)  
 		self.ax2.spines["right"].set_visible(False)  
-		self.ax2.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
+		self.ax2.loglog(self.Cd18Of, self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
 		self.ax2.set_title(r'SENSOR', color='gray')
 		self.ax2.set_xlabel(r'Period (Years)')
 		self.ax2.set_ylabel(r'PSD')
@@ -708,9 +598,9 @@ class Grapher(tk.Frame):
 		self.ax3.spines["top"].set_visible(False)  
 		self.ax3.spines["right"].set_visible(False)  
 		# Observation purturbed age ensemble here.
-		self.ax3.fill_between(q2,q1[:,0],q1[:,1],label='1000 Age-Perturbed Realizations (4%), CI',
+		self.ax3.fill_between(self.q2, self.q1[:,0], self.q1[:,1], label='1000 Age-Perturbed Realizations (4%), CI',
 			facecolor='gray',alpha=0.5)
-		self.ax3.loglog(self.Cd18Of,self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
+		self.ax3.loglog(self.Cd18Of, self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
 		self.ax3.tick_params(axis="both", which="both", bottom="on", top="off",  
 		                labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
 		self.ax3.minorticks_off()
