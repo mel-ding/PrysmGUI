@@ -91,11 +91,13 @@ class CoralPage(tk.Frame):
         tk.Frame.__init__(self, parent)
 
         # Title of Page 
-        label = tk.Label(self, text="Coral Sensor Data", font=LARGE_FONT)
+        label = tk.Label(self, text="PRYSM: Coral PSM", font=LARGE_FONT)
         label.grid(sticky="E")
 
         button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
         button1.grid(row=0, column=1, ipady=3)
+
+        rowIdx = 1
 
         # Initialize empty arrays for data saving 
         self.time = np.array([])
@@ -116,16 +118,6 @@ class CoralPage(tk.Frame):
         self.lon = -10 
         self.lat = -10          
         self.species = "default"    
-
-        # =========================================================================================
-        # SENSOR DATA 
-        # =========================================================================================
-
-        # Title of Page 
-        label = tk.Label(self, text="PRYSM: Coral PSM", font=LARGE_FONT)
-        label.grid(sticky="E")
-
-        rowIdx = 1
 
         # =========================================================================================
         # COEFFICIENT ENTRY BOXES
@@ -724,11 +716,13 @@ class CellulosePage(tk.Frame):
         tk.Frame.__init__(self, parent)
 
         # Title of Page 
-        label = tk.Label(self, text="Cellulose Sensor Data", font=LARGE_FONT)
+        label = tk.Label(self, text="PRYSM: Cellulose PSM", font=LARGE_FONT)
         label.grid(sticky="E")
 
         button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
         button1.grid(row=0, column=1,  ipady=3)
+
+        rowIdx = 1  
 
         # Initialize empty arrays for data saving 
         self.time = np.array([])
@@ -752,16 +746,6 @@ class CellulosePage(tk.Frame):
         self.R3 = -10.0     
         self.model = -1     
         self.d180 = False           
-
-        # =========================================================================================
-        # SENSOR DATA 
-        # =========================================================================================
-
-        # Title of Page 
-        label = tk.Label(self, text="PRYSM: Cellulose PSM", font=LARGE_FONT)
-        label.grid(sticky="E")
-
-        rowIdx = 1
 
         # =========================================================================================
         # FLAG TOGGLES 
