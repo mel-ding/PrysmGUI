@@ -1,4 +1,4 @@
-import os
+from os.path import basename
 import psm.coral.sensor as sensor
 import psm.agemodels.banded as banded
 import psm.aux_functions.analytical_err_simple as analytical_err_simple
@@ -319,7 +319,7 @@ class Grapher(tk.Frame):
 		# Open the file choosen by the user 
 		filename = askopenfilename(filetypes = (("csv files","*.csv"),))
 		data = np.genfromtxt(filename, delimiter = ",", names=True, dtype=None)
-		self.currentFileLabel.configure(text=os.path.basename(filename))
+		self.currentFileLabel.configure(text=basename(filename))
 		# Get the entry fields.  
 		self.time=data['TIME']
 		self.SST=data['SST']

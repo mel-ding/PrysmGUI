@@ -1,4 +1,4 @@
-import os
+from os.path import basename
 import psm.cellulose.sensor as sensor
 import psm.agemodels.banded as banded
 import psm.aux_functions.analytical_err_simple as analytical_err_simple
@@ -312,7 +312,7 @@ class Grapher(tk.Frame):
 		# Open the file choosen by the user 
 		filename = askopenfilename(filetypes = (("csv files","*.csv"),))
 		data = np.genfromtxt(filename, delimiter = ",", names=True, dtype=None)
-		self.currentFileLabel.configure(text=os.path.basename(filename))
+		self.currentFileLabel.configure(text=basename(filename))
 		# Get the entry fields.  		
 		self.time=data['TIME']
 		self.temp=data['TEMPERATURE']
@@ -500,11 +500,9 @@ class Grapher(tk.Frame):
 
 		# if rate hasn't changed and already calculated, no need to recalculate 
 		if (self.R1 != rate or self.newPSData == True):
-			print("\t HELLO HERE!!")
 			self.R1 = rate
-			if self.Xp.size == 0: 
-				self.tp, self.Xp, self.tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate,rate], 
-					name='poisson', ns=100, resize=0)
+			self.tp, self.Xp, self.tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate,rate], 
+				name='poisson', ns=100, resize=0)
 			self.Xpm = self.Xp - np.mean(self.Xp, axis=0)
 			# DO SAME CALCULATION IN LOOP FOR ALL AGE UNCERTAINTY VECTORS
 			self.Xpf=np.zeros((len(self.TCf), len(self.Xpm[1])))
@@ -600,8 +598,8 @@ class Grapher(tk.Frame):
 Initialize Application.
 """
 if __name__ == "__main__":
-    root = tk.Tk()
-    Grapher(root)
-    root.geometry("1600x700+0+50")
-    root.mainloop()
+	root = tk.Tk()
+	Grapher(root)
+	root.geometry("1600x700+0+50")
+	root.mainloop()
 
