@@ -2,13 +2,14 @@
 from os.path import basename
 import psm.coral.sensor as coralSensor
 import psm.cellulose.sensor as celluloseSensor
+import psm.icecore.sensor as icecoreSensor
+import psm.icecore.archive as icecoreArchive
 import psm.agemodels.banded as banded
 import psm.aux_functions.analytical_err_simple as analytical_err_simple
 import psm.aux_functions.analytical_error as analytical_error
 
 import tkinter as tk  
 from tkinter import ttk 
-from webbrowser import open_new
 from tkinter.filedialog import asksaveasfilename, askopenfilename
 import numpy as np
 from scipy.stats.mstats import mquantiles
@@ -39,7 +40,7 @@ class Grapher(tk.Tk):
 
         self.frames = {}
 
-        for F in (StartPage, CoralPage, CellulosePage):
+        for F in (StartPage, CoralPage, CellulosePage, IcecorePage):
             # put all of the pages in the same location; the one on the top of 
             # the stacking order will be the one that is visible.
             frame = F(container, self)
@@ -68,21 +69,10 @@ class StartPage(tk.Frame):
         button.pack(ipadx=43, ipady=3, pady=(40,5))
 
         button2 = ttk.Button(self, text="Cellulose Grapher", command=lambda: controller.show_frame(CellulosePage))
-        button2.pack(ipadx=30, ipady=3, pady=(5,75))
+        button2.pack(ipadx=30, ipady=3, pady=(5,5))
 
-        git = tk.Label(self, text="Github Repository", fg="blue", cursor="hand2", font=("Verdana", 18))
-        git.pack(pady=10, padx=10)
-        git.bind("<Button-1>", self.callback1)
-
-        paper = tk.Label(self, text="Paper", fg="blue", cursor="hand2", font=("Verdana", 18))
-        paper.pack(pady=10, padx=10)
-        paper.bind("<Button-1>", self.callback2)
-
-    def callback1(self, event):
-        open_new(r"https://github.com/sylvia-dee/PRYSM-GUI")
-
-    def callback2(self, event):
-        open_new(r"https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015MS000447")
+        button3 = ttk.Button(self, text="Icecore Grapher", command=lambda: controller.show_frame(IcecorePage))
+        button3.pack(ipadx=37, ipady=3, pady=(5,75))
 
 
 class CoralPage(tk.Frame):
@@ -328,7 +318,7 @@ class CoralPage(tk.Frame):
         file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
         if file:
             df.to_csv(file, index=False)
-            tk.messagebox.showinfo("Sucess", "Saved uncertainty data")
+            tk.messagebox.showinfo("Sucess", "Saved simulated data")
 
     """
     Saves error data into a text file. 
@@ -947,7 +937,7 @@ class CellulosePage(tk.Frame):
         file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
         if file:
             df.to_csv(file, index=False)
-            tk.messagebox.showinfo("Sucess", "Saved uncertainty data")
+            tk.messagebox.showinfo("Sucess", "Saved simulated data")
 
     """
     Saves error data into a text file. 
@@ -1281,6 +1271,636 @@ class CellulosePage(tk.Frame):
         self.altErrorEntry.delete(0, tk.END)
         self.v.set(None)
         self.inputs.set(None)
+
+
+class IcecorePage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+
+        # Title of Page 
+        label = tk.Label(self, text="PRYSM: IceCore PSM", font=LARGE_FONT)
+        label.grid(sticky="E")
+
+        button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
+        button1.grid(row=0, column=1, ipady=3)
+
+        rowIdx = 1
+
+        # Initialize empty arrays for data saving 
+        self.time= np.array([])
+        self.temp = np.array([])
+        self.accum = np.array([])
+        self.depth = np.array([])
+        self.depth_horizons = np.array([])
+        self.d18Op = np.array([])
+        self.Xp = np.array([])
+        self.ageq1 = np.array([])
+        self.gaussq1 = np.array([])
+        self.simpleq1 = np.array([])
+        self.simpleq2 = np.array([])
+        self.prepSuccess = False    # keep track of successful data prep
+        self.PS = False             # keep track of what graph is displaying 
+        self.newSensorData = True   # do we need to calculate new sensor data?
+        self.newPSData = True       # do we need to calculate new PS data?
+        self.R1 = -10.0             
+        self.R2 = -10.0                 
+        self.R3 = -10.0 
+        self.mst = -10              # TODO: check if -10 is an acceptable default value  
+        self.alt_diff = 0.0      
+        self.species = "default"    
+
+        # =========================================================================================
+        # COEFFICIENT ENTRY BOXES
+        # =========================================================================================
+
+        # Mean Surface Temperature 
+        tk.Label(self, text="Mean Surface Temperature (Atm)").grid(row=rowIdx, column=0, sticky="E")
+        self.mstEntry = tk.Entry(self)
+        self.mstEntry.grid(row=rowIdx, column=1)
+        rowIdx += 1
+
+        # Altitude Correction 
+        tk.Label(self, text="Altitude Correction (m)").grid(row=rowIdx, column=0, sticky="E")
+        self.altEntry = tk.Entry(self)
+        self.altEntry.grid(row=rowIdx, column=1)
+        rowIdx += 1
+
+        # =========================================================================================
+        # ERROR OPTIONS
+        # =========================================================================================
+
+        # Age Uncertainties
+        self.ageErrorVal = tk.BooleanVar() 
+        self.ageErrorVar = tk.Checkbutton(self, variable=self.ageErrorVal)
+        self.ageErrorVar.grid(row=rowIdx, column=2)
+        tk.Label(self, text = "Add age uncertainties with error rate:").grid(row=rowIdx, column=0, sticky="E")
+        self.ageErrorEntry = tk.Entry(self)
+        self.ageErrorEntry.grid(row=rowIdx, column=1)
+        rowIdx += 1
+
+        # Simple Analytical Errors
+        self.simAltErrorVal = tk.BooleanVar() 
+        self.simAltErrorVar = tk.Checkbutton(self, variable=self.simAltErrorVal)
+        self.simAltErrorVar.grid(row=rowIdx, column=2)
+        tk.Label(self, text = "Add simple analytical error with precision:").grid(row=rowIdx, column=0, sticky="E")
+        self.simAltErrorEntry = tk.Entry(self)
+        self.simAltErrorEntry.grid(row=rowIdx, column=1)
+        rowIdx += 1
+
+        # Gaussian Analytical Errors
+        self.altErrorVal = tk.BooleanVar() 
+        self.altErrorVar = tk.Checkbutton(self, variable=self.altErrorVal)
+        self.altErrorVar.grid(row=rowIdx, column=2)
+        tk.Label(self, text = "Add gaussian analytical error with precision:").grid(row=rowIdx, column=0, sticky="E")
+        self.altErrorEntry = tk.Entry(self)
+        self.altErrorEntry.grid(row=rowIdx, column=1)
+        rowIdx += 1
+
+        # =========================================================================================
+        # BUTTONS 
+        # =========================================================================================
+
+        # Allows user to upload data. 
+        tk.Label(self, 
+            text="Upload a single CSV file with 5 columns \n and the headers \"TIME\", \"TEMPERATURE\", \n \"ACCUMULATION\", \"DEPTH\", \"DEPTH_HORIZONS\", \"D18Op\"."
+            ).grid(row=rowIdx, columnspan=3, rowspan=3)
+        rowIdx += 3
+        tk.Label(self, text = "Click to upload your data:").grid(row=rowIdx, column=0, sticky="E")
+        graphButton = tk.Button(self, text="Upload Data", command=self.uploadData)
+        graphButton.grid(row=rowIdx, column=1, ipadx=30, ipady=3, sticky="W")
+        rowIdx += 1
+
+        # Shows the name of the current uploaded file, if any. 
+        tk.Label(self, text="Current File Uploaded:").grid(row=rowIdx, column=0, sticky="E")
+        self.currentFileLabel = tk.Label(self, text="No file")
+        self.currentFileLabel.grid(row=rowIdx, column=1, columnspan=2, sticky="W")
+        rowIdx+=1
+
+        # Creates graph with given inputs
+        tk.Label(self, text = "Click to create your own graph:").grid(row=rowIdx, column=0, sticky="E")
+        graphButton = tk.Button(self, text="Generate Graph", command=self.generateGraph)
+        graphButton.grid(row=rowIdx, column=1, ipadx=20, ipady=3, sticky="W")
+        rowIdx+=1
+
+        # Clears graph
+        tk.Label(self, text = "Click to clear the graph:").grid(row=rowIdx, column=0, sticky="E")
+        clearGraphButton = tk.Button(self, text="Clear Graph", command=self.clearGraph)
+        clearGraphButton.grid(row=rowIdx, column=1, ipadx=33, ipady=3, sticky="W")
+        rowIdx+=1
+
+        # Clears entries
+        tk.Label(self, text = "Click to clear the entries:").grid(row=rowIdx, column=0, sticky="E")
+        clearEntryButton = tk.Button(self, text="Clear Entries", command=self.clearEntries)
+        clearEntryButton.grid(row=rowIdx, column=1, ipadx=30, ipady=3, sticky="W")
+        rowIdx+=1 
+
+        # =========================================================================================
+        # GRAPH
+        # =========================================================================================
+        PSGraphButton = tk.Button(self, text="Power Spectrum", command=self.generatePS)
+        PSGraphButton.grid(row=0, column=9, ipadx=10, ipady=3, sticky="SE")
+
+        SensorGraphButton = tk.Button(self, text="Sensor", command=self.generateGraph)
+        SensorGraphButton.grid(row=0, column=11, ipadx=10, ipady=3, sticky="S")
+
+        self.f = Figure(figsize=(10,5), dpi=100)
+        self.plt = self.f.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.f, self)
+        self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")
+        self.plt.set_title(r'SENSOR',fontsize=12)
+        self.plt.set_xlabel('Time')
+        self.plt.set_ylabel('Simulated Icecore Data')
+
+        # =========================================================================================
+        # SAVE OPTIONS 
+        # ========================================================================================= 
+        saveRowIdx = 19
+        tk.Label(self, text = "Save sensor data as:").grid(row=saveRowIdx, column=5, sticky="E")
+        dataTxtbutton = tk.Button(self, text=".txt", command=self.saveTxtData)
+        dataTxtbutton.grid(row=saveRowIdx, column=7, ipadx=20, ipady=3, sticky="W")
+        dataCsvbutton = tk.Button(self, text=".csv", command=self.saveCsvData)
+        dataCsvbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+
+        tk.Label(self, text = "Save uncertainty data as:").grid(row=saveRowIdx, column=9, sticky="E")
+        errorTxtbutton = tk.Button(self, text=".txt", command=self.saveTxtErrors)
+        errorTxtbutton.grid(row=saveRowIdx, column=11, ipadx=20, ipady=3, sticky="W")
+        errorCsvbutton = tk.Button(self, text=".csv", command=self.saveCsvErrors)
+        errorCsvbutton.grid(row=saveRowIdx, column=12, ipadx=20, ipady=3, sticky="W")
+        saveRowIdx += 1
+
+        tk.Label(self, text = "Save power spectrum data as:").grid(row=saveRowIdx, column=5, sticky="E")
+        errorTxtbutton = tk.Button(self, text=".txt", command=self.saveTxtPSData)
+        errorTxtbutton.grid(row=saveRowIdx, column=7, ipadx=20, ipady=3, sticky="W")
+        errorCsvbutton = tk.Button(self, text=".csv", command=self.saveCsvPSData)
+        errorCsvbutton.grid(row=saveRowIdx, column=8, ipadx=20, ipady=3, sticky="W")
+
+        tk.Label(self, text = "Save graph as:").grid(row=saveRowIdx, column=9, sticky="E")
+        graphPNGbutton = tk.Button(self, text=".png", command=self.savePngGraph)
+        graphPNGbutton.grid(row=saveRowIdx, column=11, ipadx=20, ipady=3, sticky="W")
+        graphPDFbutton = tk.Button(self, text=".pdf", command=self.savePdfGraph)
+        graphPDFbutton.grid(row=saveRowIdx, column=12, ipadx=20, ipady=3, sticky="W")
+        saveRowIdx += 1
+
+    """
+    Saves power spectrum data as text file. 
+    """
+    def saveTxtPSData(self): 
+        if (self.Cd18Of.size != 0):
+            file1 = asksaveasfilename(initialfile="Cd180f", defaultextension=".txt")
+            if file1:
+                np.savetxt(file1, self.Cd18Of, newline=" ")
+                tk.messagebox.showinfo("Sucess", "Saved power spectrum frequency data")
+        if (self.Cd18Opsd_mt.size != 0):
+            file2 = asksaveasfilename(initialfile="Cd18Opsd_mt", defaultextension=".txt")
+            if file2:
+                np.savetxt(file2, self.Cd18Opsd_mt, newline=" ")
+                tk.messagebox.showinfo("Sucess", "Saved power spectral density data")
+
+    """
+    Saves power spectrum data as csv file. 
+    """
+    def saveCsvPSData(self): 
+        df = DataFrame({})
+        if (self.Cd18Of.size != 0):
+            df["Cd180f"] = self.Cd18Of
+        if (self.Cd18Opsd_mt.size != 0):
+            df["Cd18Opsd_mt"] = self.Cd18Opsd_mt
+        file = asksaveasfilename(initialfile="PowerSpectrumData.csv", defaultextension=".csv")
+        if file:
+            df.to_csv(file, index=False)
+            tk.messagebox.showinfo("Sucess", "Saved power spectrum data")
+
+    """
+    Saves current graph as pdf.
+    """
+    def savePdfGraph(self):
+        file = asksaveasfilename(initialfile="Figure.pdf", defaultextension=".pdf")
+        if file:
+            self.f.savefig(file)
+            tk.messagebox.showinfo("Sucess", "Saved graph")
+
+    """
+    Saves current graph as png.
+    """
+    def savePngGraph(self):
+        file = asksaveasfilename(initialfile="Figure.png", defaultextension=".png")
+        if file:
+            self.f.savefig(file)
+            tk.messagebox.showinfo("Sucess", "Saved graph")
+
+
+    """
+    Saves sensor data into a text file. 
+    """
+    def saveTxtData(self):
+        file = asksaveasfilename(initialfile="SensorData.txt", defaultextension=".txt")
+        if file:
+            np.savetxt(file, self.coral, newline=" ")
+            tk.messagebox.showinfo("Sucess", "Saved simulated data")
+    
+    """
+    Saves sensor data into a csv file. 
+    """
+    def saveCsvData(self):
+        df = DataFrame({"Sensor": self.coral})
+        file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
+        if file:
+            df.to_csv(file, index=False)
+            tk.messagebox.showinfo("Sucess", "Saved simulated data")
+
+    """
+    Saves error data into a text file. 
+    """
+    def saveCsvErrors(self):
+        df = DataFrame({})
+        if (self.ageq1.size != 0):
+            df["Age_Q1"] = self.ageq1[:,0]
+            df["Age_Q2"] = self.ageq1[:,1]
+
+        if (self.gaussq1.size != 0):
+            df["GaussianAnalytical_Q1"] = self.gaussq1[:,0]
+            df["GaussianAnalytical_Q2"] = self.gaussq1[:,1]
+        
+        if (self.simpleq1.size != 0 and self.simpleq2.size != 0):
+            df["SimpleAnalytical_Q1"] = self.simpleq1
+            df["SimpleAnalytical_Q2"] = self.simpleq2
+            
+        file = asksaveasfilename(initialfile="uncertainties.csv", defaultextension=".csv")
+        if file:
+            df.to_csv(file, index=False)
+            tk.messagebox.showinfo("Sucess", "Saved uncertainty data")
+
+    """
+    Saves error data into a text file. 
+    """
+    def saveTxtErrors(self):    
+        if (self.ageq1.size != 0):
+            file1 = asksaveasfilename(initialfile="age_uncertainties", defaultextension=".txt")
+            if file1:
+                np.savetxt(file1, (self.ageq1[:,0], self.ageq1[:,1]), newline=" ")
+                tk.messagebox.showinfo("Sucess", 
+                    "Saved age error data where Q1 is the first row and Q2 is the second row.")
+        if (self.gaussq1.size != 0):
+            file2 = asksaveasfilename(initialfile="gaussian_analytical_uncertainties", defaultextension=".txt")
+            if file2:           
+                np.savetxt(file2, (self.gaussq1[:,0], self.gaussq1[:,1]), newline=" ")
+                tk.messagebox.showinfo("Sucess", 
+                    "Saved gaussian analytical error data where Q1 is the first row and Q2 is the second row.")
+        if (self.simpleq1.size != 0 and self.simpleq2.size != 0):
+            file3 = asksaveasfilename(initialfile="simple_analytical_uncertainties", defaultextension=".txt")
+            if file3:   
+                np.savetxt(file3, (self.simpleq1, self.simpleq2), newline=" ")
+                tk.messagebox.showinfo("Sucess", 
+                    "Saved simple analytical error data where Q1 is the first row and Q2 is the second row.")
+
+
+    """
+    Takes a CSV file and saves the Time, Temperature, Accumulation, Depth, Depth Horizons, and D18Op values. 
+    """
+    def uploadData(self):
+        # Open the file choosen by the user 
+        filename = askopenfilename(filetypes = (("csv files","*.csv"),))
+        data = np.genfromtxt(filename, delimiter = ",", names=True, dtype=None)
+        self.currentFileLabel.configure(text=basename(filename))
+        # Get the entry fields.  
+        self.time = data['TIME']
+        self.temp = data['TEMPERATURE']
+        self.accum = data['ACCUMULATION']
+        self.depth = data['DEPTH']
+        self.depth_horizons = data['DEPTH_HORIZONS']
+        self.d18Op = data['D18Op']    
+        if (self.time.shape != self.temp.shape or self.accum.shape != self.depth.shape or self.depth_horizons.shape != self.d18Op.shape):
+            tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")    
+            print(self.time.shape)
+            return
+    
+    """
+    Take the input data and calculate the sensor data. 
+    """ 
+    def dataPrep(self): 
+
+        # Make sure user has uploaded data 
+        if (self.time.size == 0 or self.temp.size == 0 or self.accum.size == 0 or self.depth.size == 0 or self.depth_horizons.size == 0 or self.d18Op.size == 0):
+            tk.messagebox.showerror("Error", "Missing input data")
+            self.prepSuccess = False
+            return
+
+        # Clear whatever is currently on the canvas 
+        self.plt.clear()
+
+        # Get the mst value. 
+        mstEntryRaw = self.mstEntry.get()
+        if mstEntryRaw == "":
+            newMST = 1.0
+        else:
+            newMST = float(mstEntryRaw)
+
+        # Get the altitude correction value. 
+        altEntryRaw = self.altEntry.get()
+        if altEntryRaw == "":
+            newAltDiff = 3524.0
+        else:
+            newAltDiff = float(altEntryRaw)
+
+        # If inputs have changed, then calculate the new data 
+        if (self.mst != newMST or self.alt_diff != newAltDiff): 
+            self.newSensorData = False
+            self.newPSData = True
+            self.mst = newMST 
+            self.alt_diff = newAltDiff
+            # Call sensor model 
+            d18Oice = icecoreSensor.icecore_sensor(self.time, self.d18Op, self.alt_diff)
+ 
+        # Set inputs for archive model 
+        core_length = np.cumsum(self.accum)
+        depth = core_length[-1]
+        # For the Density Profile, we use average T, b
+        T = np.mean(self.temp)
+        b = np.mean(self.accum)
+        dz = min(self.depth_horizons)/10.       # or 0.06# stepping in depth (m)
+        drho = 0.5                              # step in density (kg/m^3)
+
+        # Call archive model
+        self.z, sigma, D, self.time_d, diffs, self.ice_diffused, rho, zieq = icecoreArchive.icecore_diffuse(d18Oice,self.accum,self.time,T,self.mst,self.depth,self.depth_horizons,dz,drho)
+
+        # Reshape icecore data for uncertainty calculations 
+        self.X = self.ice_diffused
+        self.X = self.X.reshape(len(self.X),1)
+        self.prepSuccess = True
+
+    """
+    Generates coral data based on input data and model, and graphs result.
+    """
+    def generateGraph(self): 
+
+        self.dataPrep()
+
+        # if data prep was unsucessful, do not try to generate graph.
+        if (self.prepSuccess == False): 
+            return 
+
+        # change from 3 subplots to 1 
+        if (self.PS == True): 
+            self.ax.remove()
+            self.ax2.remove()
+            self.ax3.remove()
+            self.PS = False 
+
+        # Plot age uncertainties - if selected 
+        if (self.ageErrorVal.get()):
+            # Get input error rate
+            rateRaw = self.ageErrorEntry.get()
+            if rateRaw == "":
+                tk.messagebox.showerror("Error", "Invalid Rate Value")
+                return
+            # if first time selecting rate, remember 
+            if (self.R1 == -10):
+                rate = float(rateRaw)
+                self.R1 = rate              
+            # if rate changed or new data, recalculate 
+            if (self.R1 != float(rateRaw) or self.newSensorData == True):
+                rate = float(rateRaw)
+                self.R1 = rate 
+                # Calculate the age uncertanties
+                tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
+                self.ageq1 = mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
+                q2=self.time
+                # Graph quantiles 
+                self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
+                    label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
+
+        # Plot simple analytical errors - if selected
+        if (self.simAltErrorVal.get()):
+            # Get input error rate
+            sigmaRaw = self.simAltErrorEntry.get()
+            if sigmaRaw == "":
+                tk.messagebox.showerror("Error", "Invalid Rate Value")
+                return
+            # if first time selecting rate, remember 
+            if (self.R2 == -10):
+                sigma = float(sigmaRaw)
+                self.R2 = sigma                 
+            # if rate changed or new data, recalculate 
+            if (self.R2 != float(sigmaRaw) or self.newSensorData == True):
+                sigma = float(sigmaRaw)
+                self.R2 = sigma 
+                self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
+                # Reshape quanties for graphing
+                self.simpleq1 = self.simpleq1.reshape(len(self.time))
+                self.simpleq2 = self.simpleq2.reshape(len(self.time))
+                # Graph quantiles 
+                self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
+                    label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+
+        # Plot gaussian analytical errors - if selected
+        if (self.altErrorVal.get()):
+            # Get input error rate
+            sigmaRaw = self.altErrorEntry.get()
+            if sigmaRaw == "":
+                tk.messagebox.showerror("Error", "Invalid Rate Value")
+                return
+            # if first time selecting rate, remember 
+            if (self.R3 == -10):
+                sigma = float(sigmaRaw)
+                self.R3 = sigma                 
+            # if rate changed or new data, recalculate 
+            if (self.R3 != float(sigmaRaw) or self.newSensorData == True):
+                sigma = float(sigmaRaw)
+                self.R3 = sigma 
+                Xn = analytical_error.analytical_error(self.X, sigma)
+                Xn = Xn[:,0,:].reshape(inputs, inputs) 
+                self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
+                q2=self.time
+                self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
+                    label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+
+        # Plot the graph    
+        self.plt = self.f.add_subplot(111)
+        self.plt.set_title('SENSOR')
+        self.plt.set_xlabel('Time')
+        self.plt.set_ylabel('Simulated Icecore Data')
+        self.plt.plot(self.time, self.ice_diffused, color="#3aa1e0")
+        # code from the example plot file 
+        # for i in range(len(self.Xp[1])):
+        #     plt.plot(self.depth_horizons,self.Xp[:,i],color='0.75')
+        # plt.plot(self.depth_horizons, self.ice_diffused, color='Blue')
+        # end example 
+        self.canvas = FigureCanvasTkAgg(self.f, self)
+        self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")   
+        self.canvas.draw()
+
+
+    """
+    Generates power spectrum of icecore model. 
+    """
+    def generatePS(self):
+
+        self.dataPrep()
+
+        # if data prep was unsucessful, do not try to generate graph.
+        if (self.prepSuccess == False): 
+            return
+
+        # clear whatever is currently on the canvas 
+        self.plt.clear()
+        self.f.clear()
+        self.PS = True 
+
+        # Only calculate if user uploads new data 
+        if (self.newPSData == True):
+            ice_Xn = analytical_error.analytical_error(self.X, 0.01)
+
+            # d18Oi = np.load('Ice_Archive_d18O.npy')
+            # IT = np.load('Ice_Temp.npy')
+            # IP = np.load('Ice_Precip_Accum.npy')
+            # Id18Op = np.load('Ice_Precip_d18O.npy')
+
+            # IT = IT-np.mean(IT)
+            # IP = IP-np.mean(IP)
+            # Id18Op = Id18Op-np.mean(Id18Op)
+            # d18Oi = d18Oi-np.mean(d18Oi)
+            # Xpm = Xp-np.mean(Xp, axis=0)
+             
+            # ITf, ITpsd_mt, ITnu = tsa.multi_taper_psd(IT, Fs=1.0,adaptive=False, jackknife=False)
+            # IPf, IPpsd_mt, IPnu = tsa.multi_taper_psd(IP, Fs=1.0,adaptive=False, jackknife=False)
+            # Id18Opf, Id18Oppsd_mt, Id18Opnu = tsa.multi_taper_psd(Id18Op, Fs=1.0,adaptive=False, jackknife=False)
+            # d18Oif, d18Oipsd_mt, d18Oinu = tsa.multi_taper_psd(d18Oi, Fs=1.0,adaptive=False, jackknife=False)
+            
+            # Xpf=np.zeros((len(ITf),len(Xpm[1])))
+            # Xpsd_mt=np.zeros((len(ITf),len(Xpm[1])))
+            # Xpnu=np.zeros((len(ITf),len(Xpm[1])))
+
+            # for i in range(len(Xpm[1])):
+            #     Xpf[:,i],Xpsd_mt[:,i],Xpnu[:,i]=tsa.multi_taper_psd(Xpm[:,i], Fs=1.0,adaptive=False, jackknife=False)
+
+        # Get input error rate, if specified 
+        rateRaw = self.ageErrorEntry.get()
+        if rateRaw == "":
+            rate = 0.02
+        else:
+            rate = float(rateRaw)
+
+        # if rate hasn't changed and already calculated, no need to recalculate 
+        if (self.R1 != rate or self.newPSData == True):
+            self.newPSData = False
+            self.R1 = rate
+            self.tp, self.Xp, self.tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate,rate],
+                name='poisson', ns=100, resize=0)
+            self.Xpm = self.Xp - np.mean(self.Xp, axis=0)
+            # DO SAME CALCULATION IN LOOP FOR ALL AGE UNCERTAINTY VECTORS
+            self.Xpf=np.zeros((len(self.CSTf), len(self.Xpm[1])))
+            self.Xpsd_mt=np.zeros((len(self.CSTf), len(self.Xpm[1])))
+            self.Xpnu=np.zeros((len(self.CSTf), len(self.Xpm[1])))
+            for i in range(len(self.Xpm[1])):
+                self.Xpf[:,i], self.Xpsd_mt[:,i], self.Xpnu[:,i] = tsa.multi_taper_psd(self.Xpm[:,i], Fs=1.0, 
+                    adaptive=False, jackknife=False)
+            # Compute quantiles for spectra
+            self.q1=mquantiles(self.Xpsd_mt,prob=[0.025,0.975],axis=1)
+            # x axis for quantile of spectra:
+            self.q2=self.Xpf[:,0]       
+
+        # =========================================================================================
+        
+        self.ax=self.f.add_subplot(311)
+        self.ax.spines["top"].set_visible(False)  
+        self.ax.spines["right"].set_visible(False) 
+        self.ax.loglog(self.CSTf, self.CSTpsd_mt, label='SST',color='red')
+        self.ax.loglog(self.CSSf, self.CSSpsd_mt, label='SSS (PSU)',color='LightSeaGreen')
+        self.ax.tick_params(axis="both", which="both", bottom="on", top="off",  
+                        labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
+        self.ax.minorticks_off()
+        self.ax.set_title(r'ENVIRONMENT', color='gray')
+        self.ax.set_xlabel(r'Period (Years)')
+        self.ax.set_ylabel(r'PSD')
+
+        # Change the x-tick labels to something reasonable
+        pertick = [500,200,100,50,20,10,8,6,4,2]
+        xtick = [500,200,100,50,20,10,8,6,4,2]
+        for i in range(len(pertick)):
+            xtick[i] = 1.0/pertick[i]
+        pertick_labels=(['500', '200', '100' ,'50', '20','10','8' ,'6','4', '2'])
+
+        self.ax.grid('on',axis='y',color='DimGray')
+        self.ax.set_xticks(xtick)
+        self.ax.set_xticklabels(pertick_labels)
+        self.ax.set_xlim([1./550.,0.4])
+        self.ax.set_ylim([1e-3, 1e1])
+        self.ax.legend(loc=3,fontsize=11,frameon=False)
+
+        # =========================================================================================
+
+        self.ax2=self.f.add_subplot(312)
+        self.ax2.spines["top"].set_visible(False)  
+        self.ax2.spines["right"].set_visible(False)  
+        self.ax2.loglog(self.Cd18Of, self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
+        self.ax2.set_title(r'SENSOR', color='gray')
+        self.ax2.set_xlabel(r'Period (Years)')
+        self.ax2.set_ylabel(r'PSD')
+        self.ax2.tick_params(axis="both", which="both", bottom="on", top="off",  
+                        labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
+        self.ax2.minorticks_off()
+        self.ax2.grid('on',axis='y',color='DimGray')
+        self.ax2.set_xticks(xtick)
+        self.ax2.set_xticklabels(pertick_labels)
+        self.ax2.set_xlim([1./550.,0.4])
+        self.ax2.set_ylim([1e-3, 1])
+        self.ax2.legend(loc=3,fontsize=11,frameon=False)
+
+        # =========================================================================================
+
+        self.ax3=self.f.add_subplot(313)
+        self.ax3.spines["top"].set_visible(False)  
+        self.ax3.spines["right"].set_visible(False)  
+        # Observation purturbed age ensemble here.
+        self.ax3.fill_between(self.q2, self.q1[:,0], self.q1[:,1], label='1000 Age-Perturbed Realizations (4%), CI',
+            facecolor='gray',alpha=0.5)
+        self.ax3.loglog(self.Cd18Of, self.Cd18Opsd_mt, label=r'Coral $\delta^{18}O_{C}$',color="#ff6053")
+        self.ax3.tick_params(axis="both", which="both", bottom="on", top="off",  
+                        labelbottom="on", left="on", right="off", labelleft="on",direction="out")  
+        self.ax3.minorticks_off()
+        self.ax3.set_title(r'OBSERVATION', color='gray')
+        self.ax3.set_xlabel(r'Period (Years)')
+        self.ax3.set_ylabel(r'PSD')
+        self.ax3.grid('on',axis='y',color='DimGray')
+        self.ax3.set_xticks(xtick)
+        self.ax3.set_xticklabels(pertick_labels)
+        self.ax3.set_xlim([1./550.,0.4])
+        self.ax3.set_ylim([1e-3, 1])
+        self.ax3.legend(loc=3,fontsize=11,frameon=False)
+    
+        # =========================================================================================
+
+        self.f.subplots_adjust(hspace=.95)
+        self.canvas = FigureCanvasTkAgg(self.f, self)
+        self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=20, columnspan=15, sticky="nw")
+
+    """
+    Clears all content in the graph. 
+    """
+    def clearGraph(self):
+        # clear the axes from power spectrum graph 
+        if (self.PS == True):
+            self.ax.cla()
+            self.ax2.cla() 
+            self.ax3.cla()
+        self.plt.clear()
+        self.canvas.draw()
+
+    """
+    Clears entries the user has input. 
+    """
+    def clearEntries(self):
+        self.ageErrorVal.set(0)
+        self.simAltErrorVal.set(0)
+        self.altErrorVal.set(0)
+        self.simAltErrorEntry.delete(0, tk.END)
+        self.ageErrorEntry.delete(0, tk.END)
+        self.altErrorEntry.delete(0, tk.END)
+        self.mstEntry.delete(0, tk.END)
+        self.altEntry.delete(0, tk.END)     
+        self.v.set(None)
+
 
 
 # Initialize Application.
