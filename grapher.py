@@ -21,11 +21,12 @@ import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-# import coralGrapher2 as Coral
-# import celluloseGrapher2 as Cellulose
+import webbrowser
 
 LARGE_FONT = ("Verdana", 25) 
 
+def callback(url):
+    webbrowser.open_new(url)
 
 class Grapher(tk.Tk):
 
@@ -60,11 +61,23 @@ class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self,parent)
         label = tk.Label(self, text="PRYSM Models", font=("Verdana", 40))
-        label.pack(pady=(75,10), padx=10)
+        label.pack(pady=(200,10), padx=10)
 
         descrip = tk.Label(self, text="A graphical user interface for Climate Proxy System Modeling Tools in Python",
              font=("Helvetica", 18))
         descrip.pack(pady=10, padx=10)
+    
+        authors = tk.Label(self, text="By: Sylvia Dee and Melinda Ding",
+             font=("Helvetica", 18))
+        authors.pack(pady=10, padx=10)
+
+        website = tk.Label(self, text="Getting Started Guide", fg="blue", cursor="hand2", font=("Helvetica", 18))
+        website.pack(pady=10, padx=10)
+        website.bind("<Button-1>", lambda e: callback("http://www.owlnet.rice.edu/~mjd4/"))
+
+        github = tk.Label(self, text="Github", fg="blue", cursor="hand2", font=("Helvetica", 18))
+        github.pack(pady=10, padx=10)
+        github.bind("<Button-1>", lambda e: callback("https://github.com/mel-ding/PrysmGUI"))
 
         button = ttk.Button(self, text="Coral Grapher", command=lambda: controller.show_frame(CoralPage))
         button.pack(ipadx=43, ipady=3, pady=(40,5))
@@ -82,11 +95,11 @@ class CoralPage(tk.Frame):
         tk.Frame.__init__(self, parent)
 
         # Title of Page 
-        label = tk.Label(self, text="PRYSM: Coral PSM", font=LARGE_FONT)
-        label.grid(sticky="E")
-
-        button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
-        button1.grid(row=0, column=1, ipady=3)
+        label = tk.Label(self, text="Coral Pseudo-Proxy Data", font=LARGE_FONT)
+        label.grid(sticky="E", columnspan=3)
+        
+        button1 = tk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
+        button1.grid(row=0, column=12, ipadx=10, ipady=3, sticky="SE")
 
         rowIdx = 1
 
@@ -210,11 +223,11 @@ class CoralPage(tk.Frame):
         # =========================================================================================
         # GRAPH
         # =========================================================================================
-        PSGraphButton = tk.Button(self, text="Power Spectrum", command=self.generatePS)
+        PSGraphButton = tk.Button(self, text="Time Series", command=self.generatePS)
         PSGraphButton.grid(row=0, column=9, ipadx=10, ipady=3, sticky="SE")
 
         SensorGraphButton = tk.Button(self, text="Sensor", command=self.generateGraph)
-        SensorGraphButton.grid(row=0, column=11, ipadx=10, ipady=3, sticky="S")
+        SensorGraphButton.grid(row=0, column=11, ipadx=10, ipady=3, sticky="SE")
 
         self.f = Figure(figsize=(10,5), dpi=100)
         self.plt = self.f.add_subplot(111)
@@ -707,11 +720,11 @@ class CellulosePage(tk.Frame):
         tk.Frame.__init__(self, parent)
 
         # Title of Page 
-        label = tk.Label(self, text="PRYSM: Cellulose PSM", font=LARGE_FONT)
-        label.grid(sticky="E")
+        label = tk.Label(self, text="Cellulose Pseudo-Proxy Data", font=LARGE_FONT)
+        label.grid(sticky="E", columnspan=3)
 
-        button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
-        button1.grid(row=0, column=1,  ipady=3)
+        button1 = tk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
+        button1.grid(row=0, column=12, ipadx=10, ipady=3, sticky="SE")
 
         rowIdx = 1  
 
@@ -830,7 +843,7 @@ class CellulosePage(tk.Frame):
         # =========================================================================================
         # GRAPH
         # =========================================================================================
-        PSGraphButton = tk.Button(self, text="Power Spectrum", command=self.generatePS)
+        PSGraphButton = tk.Button(self, text="Time Series", command=self.generatePS)
         PSGraphButton.grid(row=0, column=9, ipadx=20, ipady=3, sticky="S")
 
         SensorGraphButton = tk.Button(self, text="Sensor", command=self.generateGraph)
@@ -1280,11 +1293,11 @@ class IcecorePage(tk.Frame):
         tk.Frame.__init__(self, parent)
 
         # Title of Page 
-        label = tk.Label(self, text="PRYSM: IceCore PSM", font=LARGE_FONT)
-        label.grid(sticky="E")
+        label = tk.Label(self, text="Icecore Pseudo-Proxy Data", font=LARGE_FONT)
+        label.grid(sticky="E", columnspan=3)
 
-        button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
-        button1.grid(row=0, column=1, ipady=3)
+        button1 = tk.Button(self, text="Back to Home", command=lambda: controller.show_frame(StartPage))
+        button1.grid(row=0, column=12, ipadx=10, ipady=3, sticky="SE")
 
         rowIdx = 1
 
@@ -1380,7 +1393,7 @@ class IcecorePage(tk.Frame):
         # =========================================================================================
         # GRAPH
         # =========================================================================================
-        PSGraphButton = tk.Button(self, text="Power Spectrum", command=self.generatePS)
+        PSGraphButton = tk.Button(self, text="Time Series", command=self.generatePS)
         PSGraphButton.grid(row=0, column=9, ipadx=10, ipady=3, sticky="SE")
 
         SensorGraphButton = tk.Button(self, text="Sensor", command=self.generateGraph)
@@ -1550,9 +1563,9 @@ class IcecorePage(tk.Frame):
         self.pr_sub = data['PRECIPITATION']
         self.psl_sub = data['PRESSURE']
         self.d18Opr = data['D18Op']    
-        # if (self.time.shape != self.tas_sub.shape or self.pr_sub.shape != self.psl_sub.shape or self.d18Opr.shape):
-        #     tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")    
-        #     return
+        if (self.time.shape != self.tas_sub.shape != self.pr_sub.shape != self.psl_sub.shape != self.d18Opr.shape):
+            tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")    
+            return
     
     """
     Take the input data and calculate the sensor data. 
@@ -1572,7 +1585,10 @@ class IcecorePage(tk.Frame):
         data_res = icecoreAltSensor.alt_sensor(self.time, self.tas_sub, self.psl_sub, self.pr_sub, self.d18Opr)
         self.ice_diffused = data_res['pseudo_value']       
         self.pseudo_time =  data_res['pseudo_time']  
-        self.d18Op = data_res['d18O_ice'] 
+        self.d18O_ice = data_res['d18O_ice'] 
+        self.tas_ann = data_res['tas_ann'] 
+        self.psl_ann = data_res['psl_ann'] 
+        self.pr_ann = data_res['pr_ann'] 
 
         # Reshape icecore data for uncertainty calculations 
         self.X = self.ice_diffused
@@ -1709,9 +1725,9 @@ class IcecorePage(tk.Frame):
                 name='poisson', ns=100, resize=0)
         
             d18Oi = self.ice_diffused
-            IT = self.tas_sub
-            IP = np.load('accumulation.npy')
-            Id18Op = self.d18Op
+            IT = self.tas_ann
+            IP = self.pr_ann
+            Id18Op = self.d18O_ice
 
             IT = IT-np.mean(IT)
             IP = IP-np.mean(IP)
@@ -1729,18 +1745,21 @@ class IcecorePage(tk.Frame):
             Xpnu=np.zeros((len(ITf),len(Xpm[1])))
 
             print("Xpm", Xpm.shape)             # (1156, 100)
-            print("Xpf", Xpf.shape)             # (6937, 100)
-            print("Xpsd_mt", Xpsd_mt.shape)     # (6937, 100)
-            print("Xpnu", Xpnu.shape)           # (6937, 100)
+            print("Xpf", Xpf.shape)             # (503, 100)
+            print("Xpsd_mt", Xpsd_mt.shape)     # (503, 100)
+            print("Xpnu", Xpnu.shape)           # (503, 100)
+            print("IT", len(IT))                # 1156
+            print("IP", len(IP))                # 1005
+            print(len(Xpm[1]))                  # 100
 
             for i in range(len(Xpm[1])):
                 Xpf[:,i],Xpsd_mt[:,i],Xpnu[:,i]=tsa.multi_taper_psd(Xpm[:,i], Fs=1.0,adaptive=False, jackknife=False)
             # ValueError: could not broadcast input array from shape (579) into shape (6937)
 
             # Compute quantiles for spectra
-            self.q1=mquantiles(self.Xpsd_mt,prob=[0.025,0.975],axis=1)
+            self.q1=mquantiles(Xpsd_mt,prob=[0.025,0.975],axis=1)
             # x axis for quantile of spectra:
-            self.q2=self.Xpf[:,0]       
+            self.q2=Xpf[:,0]       
 
         # =========================================================================================
         # ENV
@@ -1846,6 +1865,5 @@ class IcecorePage(tk.Frame):
 # Initialize Application.
 if __name__ == "__main__":
     app = Grapher()
-    width, height = app.winfo_screenwidth(), app.winfo_screenheight()
-    app.geometry("%dx%d+0+0" % (width,height))
+    app.geometry("%dx%d+0+0" % (1440, 900)) # Fits dimension of macbook air screen
     app.mainloop()
