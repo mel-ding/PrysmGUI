@@ -223,10 +223,10 @@ class CoralPage(tk.Frame):
         # =========================================================================================
         # GRAPH
         # =========================================================================================
-        PSGraphButton = tk.Button(self, text="Time Series", command=self.generatePS)
+        PSGraphButton = tk.Button(self, text="Power Spectrum", command=self.generatePS)
         PSGraphButton.grid(row=0, column=9, ipadx=10, ipady=3, sticky="SE")
 
-        SensorGraphButton = tk.Button(self, text="Sensor", command=self.generateGraph)
+        SensorGraphButton = tk.Button(self, text="Time Series", command=self.generateGraph)
         SensorGraphButton.grid(row=0, column=11, ipadx=10, ipady=3, sticky="SE")
 
         self.f = Figure(figsize=(10,5), dpi=100)
@@ -328,7 +328,7 @@ class CoralPage(tk.Frame):
     Saves sensor data into a csv file. 
     """
     def saveCsvData(self):
-        df = DataFrame({"Sensor": self.coral})
+        df = DataFrame({"Time_Series": self.coral})
         file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
         if file:
             df.to_csv(file, index=False)
@@ -637,7 +637,7 @@ class CoralPage(tk.Frame):
         self.ax.set_xticks(xtick)
         self.ax.set_xticklabels(pertick_labels)
         self.ax.set_xlim([1./550.,0.4])
-        self.ax.set_ylim([1e-3, 1e1])
+        # self.ax.set_ylim([1e-3, 1e1])
         self.ax.legend(loc=3,fontsize=11,frameon=False)
 
         # =========================================================================================
@@ -656,7 +656,7 @@ class CoralPage(tk.Frame):
         self.ax2.set_xticks(xtick)
         self.ax2.set_xticklabels(pertick_labels)
         self.ax2.set_xlim([1./550.,0.4])
-        self.ax2.set_ylim([1e-3, 1])
+        # self.ax2.set_ylim([1e-3, 1])
         self.ax2.legend(loc=3,fontsize=11,frameon=False)
 
         # =========================================================================================
@@ -678,7 +678,7 @@ class CoralPage(tk.Frame):
         self.ax3.set_xticks(xtick)
         self.ax3.set_xticklabels(pertick_labels)
         self.ax3.set_xlim([1./550.,0.4])
-        self.ax3.set_ylim([1e-3, 1])
+        # self.ax3.set_ylim([1e-3, 1])
         self.ax3.legend(loc=3,fontsize=11,frameon=False)
     
         # =========================================================================================
@@ -843,10 +843,10 @@ class CellulosePage(tk.Frame):
         # =========================================================================================
         # GRAPH
         # =========================================================================================
-        PSGraphButton = tk.Button(self, text="Time Series", command=self.generatePS)
+        PSGraphButton = tk.Button(self, text="Power Spectrum", command=self.generatePS)
         PSGraphButton.grid(row=0, column=9, ipadx=20, ipady=3, sticky="S")
 
-        SensorGraphButton = tk.Button(self, text="Sensor", command=self.generateGraph)
+        SensorGraphButton = tk.Button(self, text="Time Series", command=self.generateGraph)
         SensorGraphButton.grid(row=0, column=11, ipadx=20, ipady=3, sticky="S")
 
         self.f = Figure(figsize=(10,5), dpi=100)
@@ -947,7 +947,7 @@ class CellulosePage(tk.Frame):
     Saves sensor data into a csv file. 
     """
     def saveCsvData(self):
-        df = DataFrame({"Sensor": self.cell})
+        df = DataFrame({"Time_Series": self.cell})
         file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
         if file:
             df.to_csv(file, index=False)
@@ -1232,7 +1232,7 @@ class CellulosePage(tk.Frame):
         self.ax.set_xticklabels(pertick_labels)
         self.ax.grid('on',axis='y',color='DimGray')
         self.ax.set_xlim([1./550.,0.4])
-        self.ax.set_ylim([1e-2, 1e0])
+        # self.ax.set_ylim([1e-2, 1e0])
         self.ax.legend(loc=3,fontsize=11,frameon=False)
 
         # =========================================================================================
@@ -1253,7 +1253,7 @@ class CellulosePage(tk.Frame):
         self.ax.set_xticks(xtick)
         self.ax.set_xticklabels(pertick_labels)  
         self.ax2.set_xlim([1./550., 0.4])
-        self.ax2.set_ylim([1e-2, 1e0])
+        # self.ax2.set_ylim([1e-2, 1e0])
         self.ax2.legend(loc=3, fontsize=11, frameon=False)
 
         # =========================================================================================
@@ -1288,7 +1288,6 @@ class CellulosePage(tk.Frame):
 
 
 class IcecorePage(tk.Frame):
-
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
@@ -1393,10 +1392,10 @@ class IcecorePage(tk.Frame):
         # =========================================================================================
         # GRAPH
         # =========================================================================================
-        PSGraphButton = tk.Button(self, text="Time Series", command=self.generatePS)
+        PSGraphButton = tk.Button(self, text="Power Spectrum", command=self.generatePS)
         PSGraphButton.grid(row=0, column=9, ipadx=10, ipady=3, sticky="SE")
 
-        SensorGraphButton = tk.Button(self, text="Sensor", command=self.generateGraph)
+        SensorGraphButton = tk.Button(self, text="Time Series", command=self.generateGraph)
         SensorGraphButton.grid(row=0, column=11, ipadx=10, ipady=3, sticky="S")
 
         self.f = Figure(figsize=(10,5), dpi=100)
@@ -1497,7 +1496,13 @@ class IcecorePage(tk.Frame):
     Saves sensor data into a csv file. 
     """
     def saveCsvData(self):
-        df = DataFrame({"Sensor": self.ice_diffused})
+        df = DataFrame({"Time_Series": self.ice_diffused,
+                        "Time": self.pseudo_time, 
+                        "D18O_ice": self.d18O_ice, 
+                        "Atmospheric_Temperature": self.tas_ann, 
+                        "Precipitation": self.psl_ann, 
+                        "Sea_Level_Pressure": self.pr_ann
+        })
         file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
         if file:
             df.to_csv(file, index=False)
@@ -1684,6 +1689,7 @@ class IcecorePage(tk.Frame):
                     label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot the graph    
+        self.f = Figure(figsize=(10,5), dpi=100)
         self.plt = self.f.add_subplot(111)
         self.plt.set_title('SENSOR')
         self.plt.set_xlabel('Time')
@@ -1744,17 +1750,8 @@ class IcecorePage(tk.Frame):
             Xpsd_mt=np.zeros((len(ITf),len(Xpm[1])))
             Xpnu=np.zeros((len(ITf),len(Xpm[1])))
 
-            print("Xpm", Xpm.shape)             # (1156, 100)
-            print("Xpf", Xpf.shape)             # (503, 100)
-            print("Xpsd_mt", Xpsd_mt.shape)     # (503, 100)
-            print("Xpnu", Xpnu.shape)           # (503, 100)
-            print("IT", len(IT))                # 1156
-            print("IP", len(IP))                # 1005
-            print(len(Xpm[1]))                  # 100
-
             for i in range(len(Xpm[1])):
                 Xpf[:,i],Xpsd_mt[:,i],Xpnu[:,i]=tsa.multi_taper_psd(Xpm[:,i], Fs=1.0,adaptive=False, jackknife=False)
-            # ValueError: could not broadcast input array from shape (579) into shape (6937)
 
             # Compute quantiles for spectra
             self.q1=mquantiles(Xpsd_mt,prob=[0.025,0.975],axis=1)
@@ -1786,7 +1783,7 @@ class IcecorePage(tk.Frame):
         self.ax.set_xticks(xtick)
         self.ax.set_xticklabels(pertick_labels)
         self.ax.set_xlim([1./550.,0.4])
-        self.ax.set_ylim([1e-3, 1e1])
+        # self.ax.set_ylim([1e-1, 1e1])
         self.ax.legend(loc=3,fontsize=11,frameon=False)
 
         # =========================================================================================
@@ -1805,7 +1802,7 @@ class IcecorePage(tk.Frame):
         self.ax2.set_xticks(xtick)
         self.ax2.set_xticklabels(pertick_labels)
         self.ax2.set_xlim([1./550.,0.4])
-        self.ax2.set_ylim([1e-3, 1])
+        # self.ax2.set_ylim([1e-3, 5])
         self.ax2.legend(loc=3,fontsize=11,frameon=False)
 
         # =========================================================================================
@@ -1827,14 +1824,15 @@ class IcecorePage(tk.Frame):
         self.ax3.set_xticks(xtick)
         self.ax3.set_xticklabels(pertick_labels)
         self.ax3.set_xlim([1./550.,0.4])
-        self.ax3.set_ylim([1e-3, 1])
+        # self.ax3.set_ylim([1e-3, 5])
         self.ax3.legend(loc=3,fontsize=11,frameon=False)
     
         # =========================================================================================
 
         self.f.subplots_adjust(hspace=.95)
         self.canvas = FigureCanvasTkAgg(self.f, self)
-        self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=20, columnspan=15, sticky="nw")
+        self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")
+
 
     """
     Clears all content in the graph. 
@@ -1859,8 +1857,6 @@ class IcecorePage(tk.Frame):
         self.ageErrorEntry.delete(0, tk.END)
         self.altErrorEntry.delete(0, tk.END)    
         self.v.set(None)
-
-
 
 # Initialize Application.
 if __name__ == "__main__":
