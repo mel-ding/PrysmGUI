@@ -2,8 +2,6 @@
 from os.path import basename
 import psm.coral.sensor as coralSensor
 import psm.cellulose.sensor as celluloseSensor
-import psm.icecore.sensor as icecoreSensor
-import psm.icecore.archive as icecoreArchive
 import psm.icecore.alt_sensor as icecoreAltSensor
 import psm.agemodels.banded as banded
 import psm.aux_functions.analytical_err_simple as analytical_err_simple
@@ -1302,7 +1300,6 @@ class IcecorePage(tk.Frame):
 
         # Initialize empty arrays for data saving 
         self.time= np.array([])
-        self.pseudo_time = np.array([])
         self.tas_sub = np.array([])
         self.psl_sub = np.array([])
         self.pr_sub = np.array([])
@@ -1497,7 +1494,7 @@ class IcecorePage(tk.Frame):
     """
     def saveCsvData(self):
         df = DataFrame({"Time_Series": self.ice_diffused,
-                        "Time": self.pseudo_time, 
+                        "Time": self.time, 
                         "D18O_ice": self.d18O_ice, 
                         "Atmospheric_Temperature": self.tas_ann, 
                         "Precipitation": self.psl_ann, 
@@ -1562,13 +1559,13 @@ class IcecorePage(tk.Frame):
         filename = askopenfilename(filetypes = (("csv files","*.csv"),))
         data = np.genfromtxt(filename, delimiter = ",", names=True, dtype=None)
         self.currentFileLabel.configure(text=basename(filename))
-        # Get the entry fields.  
-        self.time = data['TIME']
-        self.tas_sub = data['TEMPERATURE']
-        self.pr_sub = data['PRECIPITATION']
-        self.psl_sub = data['PRESSURE']
-        self.d18Opr = data['D18Op']    
-        if (self.time.shape != self.tas_sub.shape != self.pr_sub.shape != self.psl_sub.shape != self.d18Opr.shape):
+        # Get the entry fields.   
+        self.time =  data['TIME'] 
+        self.d18Opr = data['D18Op'] 
+        self.tas_ann = data['TEMPERATURE'] 
+        self.psl_ann = data['PRESSURE'] 
+        self.pr_ann = data['PRECIPITATION'] 
+        if (self.time.shape != self.tas_ann.shape != self.pr_ann.shape != self.psl_ann.shape != self.d18Opr.shape):
             tk.messagebox.showerror("Error", "Invalid Data: Data inputs are different lengths.")    
             return
     
@@ -1578,7 +1575,7 @@ class IcecorePage(tk.Frame):
     def dataPrep(self): 
 
         # Make sure user has uploaded data 
-        if (self.time.size == 0 or self.tas_sub.size == 0 or self.pr_sub.size== 0 or self.psl_sub.size == 0 or self.d18Opr.size == 0):
+        if (self.time.size == 0 or self.tas_ann.size == 0 or self.pr_ann.size== 0 or self.psl_ann.size == 0 or self.d18Opr.size == 0):
             tk.messagebox.showerror("Error", "Missing input data")
             self.prepSuccess = False
             return
@@ -1587,13 +1584,10 @@ class IcecorePage(tk.Frame):
         self.plt.clear()
 
         # Call sensor model 
-        data_res = icecoreAltSensor.alt_sensor(self.time, self.tas_sub, self.psl_sub, self.pr_sub, self.d18Opr)
-        self.ice_diffused = data_res['pseudo_value']       
-        self.pseudo_time =  data_res['pseudo_time']  
+        data_res = icecoreAltSensor.alt_sensor(self.time, self.tas_ann, self.psl_ann, self.pr_ann, self.d18Opr)
+        # data_res = icecoreAltSensor.alt_sensor(self.time, self.tas_sub, self.psl_sub, self.pr_sub, self.d18Opr)
+        self.ice_diffused = data_res['pseudo_value']        
         self.d18O_ice = data_res['d18O_ice'] 
-        self.tas_ann = data_res['tas_ann'] 
-        self.psl_ann = data_res['psl_ann'] 
-        self.pr_ann = data_res['pr_ann'] 
 
         # Reshape icecore data for uncertainty calculations 
         self.X = self.ice_diffused
@@ -1634,9 +1628,9 @@ class IcecorePage(tk.Frame):
                 rate = float(rateRaw)
                 self.R1 = rate 
                 # Calculate the age uncertanties
-                tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.pseudo_time, param=[rate, rate])
+                tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
                 self.ageq1 = mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
-                q2=self.pseudo_time
+                q2=self.time
                 # Graph quantiles 
                 self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
                     label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
@@ -1658,10 +1652,10 @@ class IcecorePage(tk.Frame):
                 self.R2 = sigma 
                 self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
                 # Reshape quanties for graphing
-                self.simpleq1 = self.simpleq1.reshape(len(self.pseudo_time))
-                self.simpleq2 = self.simpleq2.reshape(len(self.pseudo_time))
+                self.simpleq1 = self.simpleq1.reshape(len(self.time))
+                self.simpleq2 = self.simpleq2.reshape(len(self.time))
                 # Graph quantiles 
-                self.plt.fill_between(self.pseudo_time, self.simpleq1, self.simpleq2, 
+                self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
                     label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot gaussian analytical errors - if selected
@@ -1684,7 +1678,7 @@ class IcecorePage(tk.Frame):
                 Xn = analytical_error.analytical_error(self.X, sigma, inputs)
                 Xn = Xn[:,0,:].reshape(inputs, inputs) 
                 self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
-                q2=self.pseudo_time
+                q2=self.time
                 self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
                     label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
@@ -1694,7 +1688,7 @@ class IcecorePage(tk.Frame):
         self.plt.set_title('SENSOR')
         self.plt.set_xlabel('Time')
         self.plt.set_ylabel('Simulated Icecore Data')
-        self.plt.plot(self.pseudo_time, self.ice_diffused, color="#3aa1e0")
+        self.plt.plot(self.time, self.ice_diffused, color="#3aa1e0")
         self.canvas = FigureCanvasTkAgg(self.f, self)
         self.canvas.get_tk_widget().grid(row=1, column=3, rowspan=16, columnspan=15, sticky="nw")   
         self.canvas.draw()
@@ -1727,7 +1721,7 @@ class IcecorePage(tk.Frame):
         if (self.R1 != rate or self.newPSData == True):
             self.newPSData = False
             self.R1 = rate
-            self.tp, self.Xp, self.tmc = banded.bam_simul_perturb(self.X, self.pseudo_time, param=[rate,rate],
+            self.tp, self.Xp, self.tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate,rate],
                 name='poisson', ns=100, resize=0)
         
             d18Oi = self.ice_diffused
