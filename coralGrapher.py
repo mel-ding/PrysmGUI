@@ -9,7 +9,7 @@ from tkinter.filedialog import asksaveasfilename, askopenfilename
 import numpy as np
 from scipy.stats.mstats import mquantiles
 import nitime.algorithms as tsa
-from pandas import DataFrame
+# from pandas import DataFrame
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -260,17 +260,17 @@ class Grapher(tk.Frame):
 	Saves sensor data into a csv file. 
 	"""
 	def saveCsvData(self):
-		df = DataFrame({"Sensor": self.coral})
 		file = asksaveasfilename(initialfile="SensorData.csv", defaultextension=".csv")
 		if file:
-			df.to_csv(file, index=False)
-			tk.messagebox.showinfo("Sucess", "Saved uncertainty data")
+			np.savetxt(file, self.coral, delimiter=',', header="Sensor", comments="")
+			tk.messagebox.showinfo("Sucess", "Saved simulated coral sensor data")
 
 	"""
 	Saves error data into a text file. 
 	"""
 	def saveCsvErrors(self):
-		df = DataFrame({})
+		header = ""
+		# df = DataFrame({})
 		if (self.ageq1.size != 0):
 			df["Age_Q1"] = self.ageq1[:,0]
 			df["Age_Q2"] = self.ageq1[:,1]

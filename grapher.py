@@ -414,7 +414,8 @@ class CoralPage(tk.Frame):
         # Get the longitude value. 
         lonEntryRaw = self.lonEntry.get()
         if lonEntryRaw == "":
-            newLon = 197.92
+            tk.messagebox.showerror("Error", "Missing Longitude Value")
+            return 
         else:
             newLon = float(lonEntryRaw)
             # Longitude must be in the range [0, 360]
@@ -426,7 +427,8 @@ class CoralPage(tk.Frame):
         # Get the latitude value. 
         latEntryRaw = self.latEntry.get()
         if latEntryRaw == "": 
-            newLat = 5.8833
+            tk.messagebox.showerror("Error", "Missing Latitude Value")
+            return
         else:
             newLat = float(latEntryRaw)
             # Latitude must be in the range [-90, 90] 
@@ -482,21 +484,15 @@ class CoralPage(tk.Frame):
             if rateRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R1 == -10):
-                rate = float(rateRaw)
-                self.R1 = rate              
-            # if rate changed or new data, recalculate 
-            if (self.R1 != float(rateRaw) or self.newSensorData == True):
-                rate = float(rateRaw)
-                self.R1 = rate 
-                # Calculate the age uncertanties
-                tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
-                self.ageq1=mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
-                q2=self.time
-                # Graph quantiles 
-                self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
-                    label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
+            rate = float(rateRaw)
+            self.R1 = rate 
+            # Calculate the age uncertanties
+            tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
+            self.ageq1=mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
+            q2=self.time
+            # Graph quantiles 
+            self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
+                label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
 
         # Plot simple analytical errors - if selected
         if (self.simAltErrorVal.get()):
@@ -505,21 +501,15 @@ class CoralPage(tk.Frame):
             if sigmaRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R2 == -10):
-                sigma = float(sigmaRaw)
-                self.R2 = sigma                 
-            # if rate changed or new data, recalculate 
-            if (self.R2 != float(sigmaRaw) or self.newSensorData == True):
-                sigma = float(sigmaRaw)
-                self.R2 = sigma 
-                self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
-                # Reshape quanties for graphing
-                self.simpleq1 = self.simpleq1.reshape(len(self.time))
-                self.simpleq2 = self.simpleq2.reshape(len(self.time))
-                # Graph quantiles 
-                self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
-                    label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+            sigma = float(sigmaRaw)
+            self.R2 = sigma 
+            self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
+            # Reshape quanties for graphing
+            self.simpleq1 = self.simpleq1.reshape(len(self.time))
+            self.simpleq2 = self.simpleq2.reshape(len(self.time))
+            # Graph quantiles 
+            self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
+                label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot gaussian analytical errors - if selected
         if (self.altErrorVal.get()):
@@ -528,23 +518,17 @@ class CoralPage(tk.Frame):
             if sigmaRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R3 == -10):
-                sigma = float(sigmaRaw)
-                self.R3 = sigma                 
-            # if rate changed or new data, recalculate 
-            if (self.R3 != float(sigmaRaw) or self.newSensorData == True):
-                sigma = float(sigmaRaw)
-                self.R3 = sigma 
-                inputs = len(self.X)
-                self.X = self.coral
-                self.X = self.X.reshape(inputs,1)
-                Xn = analytical_error.analytical_error(self.X, sigma, inputs)
-                Xn = Xn[:,0,:].reshape(inputs, inputs) 
-                self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
-                q2=self.time
-                self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
-                    label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+            sigma = float(sigmaRaw)
+            self.R3 = sigma 
+            inputs = len(self.X)
+            self.X = self.coral
+            self.X = self.X.reshape(inputs,1)
+            Xn = analytical_error.analytical_error(self.X, sigma, inputs)
+            Xn = Xn[:,0,:].reshape(inputs, inputs) 
+            self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
+            q2=self.time
+            self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
+                label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot the graph    
         self.plt = self.f.add_subplot(111)
@@ -1084,21 +1068,15 @@ class CellulosePage(tk.Frame):
             if rateRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R1 == -10):
-                rate = float(rateRaw)
-                self.R1 = rate              
-            # if rate changed or new data, recalculate 
-            if (self.R1 != float(rateRaw) or self.newSensorData == True):
-                rate = float(rateRaw)
-                self.R1 = rate 
-                # Calculate the age uncertanties
-                tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
-                self.ageq1=mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
-                q2=self.time
-                # Graph quantiles 
-                self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
-                    label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
+            rate = float(rateRaw)
+            self.R1 = rate 
+            # Calculate the age uncertanties
+            tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
+            self.ageq1=mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
+            q2=self.time
+            # Graph quantiles 
+            self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
+                label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
 
         # Plot simple analytical errors - if selected
         if (self.simAltErrorVal.get()):
@@ -1107,21 +1085,15 @@ class CellulosePage(tk.Frame):
             if sigmaRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R2 == -10):
-                sigma = float(sigmaRaw)
-                self.R2 = sigma                 
-            # if rate changed or new data, recalculate 
-            if (self.R2 != float(sigmaRaw) or self.newSensorData == True):
-                sigma = float(sigmaRaw)
-                self.R2 = sigma 
-                self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
-                # Reshape quanties for graphing
-                self.simpleq1 = self.simpleq1.reshape(len(self.time))
-                self.simpleq2 = self.simpleq2.reshape(len(self.time))
-                # Graph quantiles 
-                self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
-                    label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+            sigma = float(sigmaRaw)
+            self.R2 = sigma 
+            self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
+            # Reshape quanties for graphing
+            self.simpleq1 = self.simpleq1.reshape(len(self.time))
+            self.simpleq2 = self.simpleq2.reshape(len(self.time))
+            # Graph quantiles 
+            self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
+                label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot gaussian analytical errors - if selected
         if (self.altErrorVal.get()):
@@ -1130,23 +1102,17 @@ class CellulosePage(tk.Frame):
             if sigmaRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R3 == -10):
-                sigma = float(sigmaRaw)
-                self.R3 = sigma                 
-            # if rate changed or new data, recalculate 
-            if (self.R3 != float(sigmaRaw) or self.newSensorData == True):
-                sigma = float(sigmaRaw)
-                self.R3 = sigma 
-                inputs = len(self.X)
-                self.X = self.cell
-                self.X = self.X.reshape(inputs,1)
-                Xn = analytical_error.analytical_error(self.X, sigma, inputs)
-                Xn = Xn[:,0,:].reshape(inputs, inputs) 
-                self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
-                q2=self.time
-                self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
-                    label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+            sigma = float(sigmaRaw)
+            self.R3 = sigma 
+            inputs = len(self.X)
+            self.X = self.cell
+            self.X = self.X.reshape(inputs,1)
+            Xn = analytical_error.analytical_error(self.X, sigma, inputs)
+            Xn = Xn[:,0,:].reshape(inputs, inputs) 
+            self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
+            q2=self.time
+            self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
+                label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot the graph    
         self.plt = self.f.add_subplot(111)
@@ -1619,21 +1585,15 @@ class IcecorePage(tk.Frame):
             if rateRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R1 == -10):
-                rate = float(rateRaw)
-                self.R1 = rate              
-            # if rate changed or new data, recalculate 
-            if (self.R1 != float(rateRaw) or self.newSensorData == True):
-                rate = float(rateRaw)
-                self.R1 = rate 
-                # Calculate the age uncertanties
-                tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
-                self.ageq1 = mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
-                q2=self.time
-                # Graph quantiles 
-                self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
-                    label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
+            rate = float(rateRaw)
+            self.R1 = rate 
+            # Calculate the age uncertanties
+            tp, self.Xp, tmc = banded.bam_simul_perturb(self.X, self.time, param=[rate, rate])
+            self.ageq1 = mquantiles(self.Xp, prob=[0.025,0.975],axis=1)
+            q2=self.time
+            # Graph quantiles 
+            self.plt.fill_between(q2, self.ageq1[:,0], self.ageq1[:,1],
+                label='1000 Age-Perturbed Realizations, CI', facecolor='gray',alpha=0.5)
 
         # Plot simple analytical errors - if selected
         if (self.simAltErrorVal.get()):
@@ -1642,21 +1602,15 @@ class IcecorePage(tk.Frame):
             if sigmaRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R2 == -10):
-                sigma = float(sigmaRaw)
-                self.R2 = sigma                 
-            # if rate changed or new data, recalculate 
-            if (self.R2 != float(sigmaRaw) or self.newSensorData == True):
-                sigma = float(sigmaRaw)
-                self.R2 = sigma 
-                self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
-                # Reshape quanties for graphing
-                self.simpleq1 = self.simpleq1.reshape(len(self.time))
-                self.simpleq2 = self.simpleq2.reshape(len(self.time))
-                # Graph quantiles 
-                self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
-                    label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+            sigma = float(sigmaRaw)
+            self.R2 = sigma 
+            self.simpleq1, self.simpleq2 = analytical_err_simple.analytical_err_simple(self.X,sigma)
+            # Reshape quanties for graphing
+            self.simpleq1 = self.simpleq1.reshape(len(self.time))
+            self.simpleq2 = self.simpleq2.reshape(len(self.time))
+            # Graph quantiles 
+            self.plt.fill_between(self.time, self.simpleq1, self.simpleq2, 
+                label='100 Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot gaussian analytical errors - if selected
         if (self.altErrorVal.get()): 
@@ -1665,25 +1619,18 @@ class IcecorePage(tk.Frame):
             if sigmaRaw == "":
                 tk.messagebox.showerror("Error", "Invalid Rate Value")
                 return
-            # if first time selecting rate, remember 
-            if (self.R3 == -10):
-                sigma = float(sigmaRaw)
-                self.R3 = sigma                 
-            # if rate changed or new data, recalculate 
-            if (self.R3 != float(sigmaRaw) or self.newSensorData == True):
-                sigma = float(sigmaRaw)
-                self.R3 = sigma 
-                inputs = len(self.X)
-                self.X = self.X.reshape(inputs,1)
-                Xn = analytical_error.analytical_error(self.X, sigma, inputs)
-                Xn = Xn[:,0,:].reshape(inputs, inputs) 
-                self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
-                q2=self.time
-                self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
-                    label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
+            sigma = float(sigmaRaw)
+            self.R3 = sigma 
+            inputs = len(self.X)
+            self.X = self.X.reshape(inputs,1)
+            Xn = analytical_error.analytical_error(self.X, sigma, inputs)
+            Xn = Xn[:,0,:].reshape(inputs, inputs) 
+            self.gaussq1=mquantiles(Xn,prob=[0.025,0.975],axis=1)
+            q2=self.time
+            self.plt.fill_between(q2,self.gaussq1[:,0],self.gaussq1[:,1],
+                label='100 Gaussian Analytical Error Realizations, CI', facecolor='darkgray',alpha=0.5)
 
         # Plot the graph    
-        self.f = Figure(figsize=(10,5), dpi=100)
         self.plt = self.f.add_subplot(111)
         self.plt.set_title('SENSOR')
         self.plt.set_xlabel('Time')
